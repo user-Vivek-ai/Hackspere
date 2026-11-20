@@ -62,6 +62,17 @@
   /* Alias for templates using --primary / --success */
   --primary: #6366f1;
   --success: #10b981;
+  --success-bg: #ecfdf5;
+  --success-text: #065f46;
+  --warning: #f59e0b;
+  --warning-bg: #fffbeb;
+  --warning-text: #92400e;
+  --danger: #ef4444;
+  --danger-bg: #fef2f2;
+  --danger-text: #991b1b;
+  --info: #3b82f6;
+  --info-bg: #eff6ff;
+  --info-text: #1e40af;
 
   --r-sm: 6px;
   --r-md: 10px;
@@ -574,38 +585,50 @@ textarea.form-control { resize: vertical; min-height: 110px; }
 .auth-logo { display: flex; justify-content: center; margin-bottom: 28px; }
 .auth-logo .brand-mark,
 .auth-logo .brand-icon { width: 44px; height: 44px; border-radius: 13px; }
-.auth-head { text-align: center; margin-bottom: 32px; }
-.auth-head h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 6px; }
-.auth-head p { color: var(--gray-500); font-size: 0.9375rem; }
+.auth-head,
+.auth-header { text-align: center; margin-bottom: 32px; }
+.auth-head h1,
+.auth-header h1 { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 6px; }
+.auth-head p,
+.auth-header p { color: var(--gray-500); font-size: 0.9375rem; }
 
 .form-group { margin-bottom: 18px; }
-.pw-wrap { position: relative; }
-.pw-wrap input { padding-right: 42px; }
-.pw-toggle {
+.pw-wrap,
+.password-input-group { position: relative; }
+.pw-wrap input,
+.password-input-group input { padding-right: 42px; }
+.pw-toggle,
+.password-toggle-btn {
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 2px;
-  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer; color: var(--gray-400); padding: 4px;
+  display: flex; align-items: center; justify-content: center; border-radius: var(--r-sm);
 }
-.pw-toggle:hover { color: var(--gray-700); }
+.pw-toggle:hover,
+.password-toggle-btn:hover { color: var(--gray-700); }
 
 /* Old: .role-options  New: .role-cards */
 .role-options,
+.role-selector,
 .role-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
 /* Old: .role-option  New: .role-card */
 .role-option,
 .role-card {
   border: 1.5px solid var(--gray-200); border-radius: var(--r-lg);
-  padding: 14px; cursor: pointer; transition: var(--transition); text-align: center;
+  padding: 14px; cursor: pointer; transition: var(--transition); text-align: left;
+  background: #fff;
 }
 .role-option:hover,
 .role-card:hover { border-color: var(--brand-light); background: var(--brand-50); }
 .role-option.active,
+.role-option.selected,
 .role-card.active { border-color: var(--brand); background: var(--brand-50); }
 .role-option input[type=radio],
 .role-card input[type=radio] { display: none; }
 .role-icon { font-size: 1.5rem; margin-bottom: 6px; }
-.role-name { font-size: 0.875rem; font-weight: 700; color: var(--gray-900); }
-.role-hint { font-size: 0.72rem; color: var(--gray-500); margin-top: 2px; }
+.role-name,
+.role-title { font-size: 0.875rem; font-weight: 700; color: var(--gray-900); }
+.role-hint,
+.role-desc { font-size: 0.72rem; color: var(--gray-500); margin-top: 2px; }
 
 .pw-rules { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--r-md); padding: 10px 14px; font-size: 0.78rem; color: var(--gray-500); margin-bottom: 18px; }
 .pw-rules ul { margin-left: 16px; margin-top: 4px; }
