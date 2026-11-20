@@ -73,6 +73,16 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   });
 
+  // Automatically activate tab from URL query param ?tab=... or hash #...
+  const urlParams = new URLSearchParams(window.location.search);
+  const activeTabParam = urlParams.get("tab") || (window.location.hash ? window.location.hash.replace("#", "") : null);
+  if (activeTabParam) {
+    const matchedBtn = document.querySelector(`.tab-btn[data-tab*="${activeTabParam}"]`);
+    if (matchedBtn) {
+      matchedBtn.click();
+    }
+  }
+
   // 5. Alert Auto-Dismiss
   const alertCloseBtns = document.querySelectorAll(".alert-close");
   alertCloseBtns.forEach((btn) => {

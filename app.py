@@ -1065,7 +1065,7 @@ def review_registration(hackathon_id, reg_id):
 
     status_label = "Accepted" if decision == "accepted" else "Rejected"
     flash(f"Registration for {reg['user_name']} has been marked as {status_label}.", "success")
-    return redirect(url_for("organizer_manage_hackathon", hackathon_id=hackathon_id))
+    return redirect(url_for("organizer_manage_hackathon", hackathon_id=hackathon_id, tab="participants"))
 
 @app.route("/api/submissions/<int:submission_id>/review", methods=["POST"])
 @login_required
