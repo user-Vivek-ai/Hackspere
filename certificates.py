@@ -1,13 +1,20 @@
 import os
 import io
 import secrets
+import tempfile
 from datetime import datetime
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.graphics.shapes import Drawing, Rect, Circle, String, Group, Polygon
 
-CERT_DIR = os.path.join(os.path.dirname(__file__), "static", "certificates")
+IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
+
+if IS_VERCEL:
+    CERT_DIR = os.path.join(tempfile.gettempdir(), "certificates")
+else:
+    CERT_DIR = os.path.join(os.path.dirname(__file__), "static", "certificates")
+
 os.makedirs(CERT_DIR, exist_ok=True)
 
 def generate_certificate_code() -> str:

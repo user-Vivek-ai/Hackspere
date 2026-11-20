@@ -1,6 +1,7 @@
 import os
 import re
 import uuid
+import tempfile
 from datetime import datetime
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -18,10 +19,30 @@ from certificates import generate_certificate_code, generate_certificate_pdf, CE
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "hacksphere-super-secure-production-key-2026")
 
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static", "uploads")
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp", "pdf", "zip"}
+IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
+
+if IS_VERCEL:
+    UPLOAD_FOLDER = os.path.join(tempfile.gettempdir(), "uploads")
+else:
+    UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static", "uploads")
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CERT_DIR, exist_ok=True)
+
+# Auto-initialize and seed database on startup / serverless cold-start
+def ensure_database_ready():
+    try:
+        init_db()
+        db = get_db()
+        user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()["c"]
+        db.close()
+        if user_count == 0:
+            from seed import seed_database
+            seed_database()
+    except Exception as e:
+        print("Database auto-prep warning:", e)
+
+ensure_database_ready()
 
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB max

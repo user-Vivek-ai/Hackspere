@@ -1,8 +1,23 @@
 import sqlite3
 import os
+import shutil
+import tempfile
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "hacksphere.db")
+IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
+
+if IS_VERCEL:
+    TEMP_DIR = tempfile.gettempdir()
+    DB_PATH = os.path.join(TEMP_DIR, "hacksphere.db")
+    # Copy pre-seeded DB from build artifact to temp if not already in temp
+    src_db = os.path.join(os.path.dirname(__file__), "hacksphere.db")
+    if not os.path.exists(DB_PATH) and os.path.exists(src_db):
+        try:
+            shutil.copy2(src_db, DB_PATH)
+        except Exception:
+            pass
+else:
+    DB_PATH = os.path.join(os.path.dirname(__file__), "hacksphere.db")
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
