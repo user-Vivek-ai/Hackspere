@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Submit Project - {{ hackathon.title }}{% endblock %}
+
+{% block content %}
+<div class="container container-narrow" style="padding-top: 3rem; padding-bottom: 5rem;">
+  <!-- Breadcrumb & Header -->
+  <div style="margin-bottom: 2rem;">
+    <a href="{{ url_for('hackathon_detail', hackathon_id=hackathon.id) }}" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem;">
+      &larr; Back to {{ hackathon.title }}
+    </a>
+    <h1 style="font-size: 2.25rem; font-weight: 800; color: var(--slate-900);">Project Submission</h1>
+    <p style="color: var(--slate-600); margin-top: 0.25rem;">
+      Submitting for <strong>{{ hackathon.title }}</strong> • Deadline: {{ hackathon.submission_deadline }}
+    </p>
+  </div>
+
+  <div class="content-block">
+    <form method="POST" action="{{ url_for('submit_project', hackathon_id=hackathon.id) }}" enctype="multipart/form-data">
+      <!-- Project Name -->
+      <div class="form-group">
+        <label for="projectName" class="form-label">Project Name <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="projectName" name="project_name" value="{{ submission.project_name if submission else '' }}" class="form-control" placeholder="e.g. AutoAgent Studio" required>
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label for="projectDesc" class="form-label">Project Description <span style="color: var(--danger);">*</span></label>
+        <textarea id="projectDesc" name="description" rows="5" class="form-control" placeholder="Explain the problem you solved, how you built it, the tech stack, and what makes your solution unique..." required>{{ submission.description if submission else '' }}</textarea>
+        <span style="font-size: 0.75rem; color: var(--slate-500);">Minimum 20 characters. Be thorough to help organizers evaluate your entry.</span>
+      </div>
+
+      <!-- Team Members -->
+      <div class="form-group">
+        <label for="teamMembers" class="form-label">Team Members (Names / Emails)</label>
+        <input type="text" id="teamMembers" name="team_members" value="{{ submission.team_members if submission else current_user.name }}" class="form-control" placeholder="e.g. Alex Rivera, Elena Rostova, kevin@example.com">
+      </div>
+
+      <!-- Live Demo URL -->
+      <div class="form-group">
+        <label for="demoUrl" class="form-label">Live Demo / Deployed Project URL <span style="color: var(--danger);">*</span></label>
+        <input type="url" id="demoUrl" name="demo_url" value="{{ submission.demo_url if submission else '' }}" class="form-control" placeholder="https://myproject.demo.com" required>
+        <span style="font-size: 0.75rem; color: var(--slate-500);">Must start with http:// or https://. The organizer will test this link during evaluation.</span>
+      </div>
+
+      <!-- Repository / Source Code URL -->
+      <div class="form-group">
+        <label for="repoUrl" class="form-label">GitHub / Repository URL</label>
+        <input type="url" id="repoUrl" name="repo_url" value="{{ submission.repo_url if submission else '' }}" class="form-control" placeholder="https://github.com/username/project">
+      </div>
+
+      <!-- Optional File / Screenshot Upload -->
+      <div class="form-group">
+        <label for="projectFile" class="form-label">Project Screenshot or Presentation Deck (Optional)</label>
+        <input type="file" id="projectFile" name="project_file" class="form-control" accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.zip">
+        <span style="font-size: 0.75rem; color: var(--slate-500);">Supported formats: PNG, JPG, WEBP, PDF, ZIP (Max 16MB).</span>
+
+        {% if submission and submission.image_url %}
+          <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 0.8rem; color: var(--slate-600);">Current file:</span>
+            <a href="{{ submission.image_url }}" target="_blank" style="font-size: 0.85rem; font-weight: 600;">View Uploaded Screenshot &rarr;</a>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Notice box -->
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: #1e40af;">
+        <strong>Certificate Notice:</strong> After submission, the organizer will review your project against the judging criteria. If accepted, your official participation certificate will be automatically generated and unlocked for PDF download.
+      </div>
+
+      <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+        <a href="{{ url_for('hackathon_detail', hackathon_id=hackathon.id) }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+          </svg>
+          {% if submission %}Update Submission{% else %}Submit Project{% endif %}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

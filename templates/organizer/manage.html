@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block title %}Manage {{ hackathon.title }} - HackSphere{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <div class="container">
+    <div style="margin-bottom: 0.75rem;">
+      <a href="{{ url_for('organizer_dashboard') }}" style="font-size: 0.9rem; font-weight: 600; color: var(--primary);">
+        &larr; Back to Organizer Dashboard
+      </a>
+    </div>
+
+    <div class="dashboard-title-row">
+      <div>
+        <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+          <span class="badge badge-{{ hackathon.format }}">{{ hackathon.format }}</span>
+          <span class="badge badge-{{ hackathon.status }}">{{ hackathon.status }}</span>
+          <span class="badge badge-tag">{{ hackathon.theme }}</span>
+        </div>
+        <h1 style="font-size: 2.2rem; font-weight: 800; color: var(--slate-900);">{{ hackathon.title }}</h1>
+        <p style="color: var(--slate-600); margin-top: 0.25rem;">
+          Dates: {{ hackathon.start_date }} to {{ hackathon.end_date }} • Submissions Deadline: {{ hackathon.submission_deadline }}
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('hackathon_edit', hackathon_id=hackathon.id) }}" class="btn btn-secondary">
+          <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+          </svg>
+          Edit Details
+        </a>
+        <a href="{{ url_for('hackathon_detail', hackathon_id=hackathon.id) }}" class="btn btn-outline" target="_blank">
+          View Public Page
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container" style="padding-bottom: 5rem;">
+  <!-- Summary Stats Bar -->
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    <div class="content-block" style="padding: 1.25rem; text-align: center;">
+      <div style="font-size: 1.85rem; font-weight: 800; color: var(--slate-900);">{{ participants|length }}</div>
+      <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Registered Builders</div>
+    </div>
+
+    <div class="content-block" style="padding: 1.25rem; text-align: center;">
+      <div style="font-size: 1.85rem; font-weight: 800; color: var(--primary);">{{ submissions|length }}</div>
+      <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Total Submissions</div>
+    </div>
+
+    <div class="content-block" style="padding: 1.25rem; text-align: center; border-color: #fde68a; background: #fffbeb;">
+      <div style="font-size: 1.85rem; font-weight: 800; color: #d97706;">
+        {{ submissions|selectattr('status', 'equalto', 'pending')|list|length }}
+      </div>
+      <div style="font-size: 0.8rem; color: #92400e; font-weight: 700; text-transform: uppercase;">Pending Review</div>
+    </div>
+
+    <div class="content-block" style="padding: 1.25rem; text-align: center; border-color: #a7f3d0; background: #ecfdf5;">
+      <div style="font-size: 1.85rem; font-weight: 800; color: var(--success);">{{ certificates|length }}</div>
+      <div style="font-size: 0.8rem; color: var(--success-text); font-weight: 700; text-transform: uppercase;">Certificates Awarded</div>
+    </div>
+  </div>
+
+  <div class="tabs-wrapper">
+    <!-- Tabs Nav -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" data-tab="manage-submissions">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        Project Submissions ({{ submissions|length }})
+      </button>
+
+      <button class="tab-btn" data-tab="manage-participants">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+        </svg>
+        Registered Participants ({{ participants|length }})
+      </button>
+
+      <button class="tab-btn" data-tab="manage-certificates">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+        </svg>
+        Issued Certificates ({{ certificates|length }})
+      </button>
+    </div>
+
+    <!-- TAB 1: SUBMISSIONS REVIEW -->
+    <div class="tab-content active" id="manage-submissions">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 2rem;">
+        <div style="font-weight: 700; color: #1e40af; margin-bottom: 0.25rem;">
+          How Project Review & Certification Works:
+        </div>
+        <p style="font-size: 0.85rem; color: #1e3a8a;">
+          Review each submitted project below. When you mark a project as <strong>Accepted</strong>, HackSphere automatically generates a personalized, vector PDF certificate with a verified ID and makes it immediately downloadable in the participant's account.
+        </p>
+      </div>
+
+      {% if submissions %}
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          {% for sub in submissions %}
+            <div class="content-block" style="border-left: 4px solid {% if sub.status == 'accepted' %}var(--success){% elif sub.status == 'rejected' %}var(--danger){% else %}var(--warning){% endif %};">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                  <h3 style="font-size: 1.4rem; font-weight: 800; color: var(--slate-900);">
+                    {{ sub.project_name }}
+                  </h3>
+                  <div style="font-size: 0.9rem; color: var(--slate-600); margin-top: 0.2rem;">
+                    Submitted by <strong>{{ sub.submitter_name }}</strong> ({{ sub.submitter_email }})
+                  </div>
+                  <div style="font-size: 0.8rem; color: var(--slate-400);">Submitted at: {{ sub.submitted_at }}</div>
+                </div>
+
+                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                  <span class="badge badge-{{ sub.status }}" style="font-size: 0.85rem; padding: 0.35rem 0.8rem;">
+                    {{ sub.status|upper }}
+                  </span>
+                  <button type="button" class="btn btn-sm btn-primary" onclick="openReviewModal('{{ sub.id }}', '{{ sub.project_name|replace('\'', '\\\'') }}', '{{ sub.submitter_name|replace('\'', '\\\'') }}', '{{ sub.status }}', '{{ sub.feedback|replace('\'', '\\\'') if sub.feedback else '' }}')">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                    </svg>
+                    Review / Decision
+                  </button>
+                </div>
+              </div>
+
+              <!-- Project Description -->
+              <p style="color: var(--slate-700); font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.25rem;">
+                {{ sub.description }}
+              </p>
+
+              <!-- Links & Team Info -->
+              <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--slate-600); padding: 0.85rem 1rem; background: var(--slate-50); border-radius: var(--radius-md); margin-bottom: 1rem;">
+                <div><strong>Team:</strong> {{ sub.team_members or sub.submitter_name }}</div>
+                <div>
+                  <strong>Live Demo URL:</strong>
+                  <a href="{{ sub.demo_url }}" target="_blank" rel="noopener noreferrer" style="font-weight: 600;">
+                    {{ sub.demo_url }} &rarr;
+                  </a>
+                </div>
+                {% if sub.repo_url %}
+                  <div>
+                    <strong>Repository:</strong>
+                    <a href="{{ sub.repo_url }}" target="_blank" rel="noopener noreferrer" style="font-weight: 600;">
+                      {{ sub.repo_url }} &rarr;
+                    </a>
+                  </div>
+                {% endif %}
+                {% if sub.image_url %}
+                  <div>
+                    <strong>Attachment:</strong>
+                    <a href="{{ sub.image_url }}" target="_blank" style="font-weight: 600;">View Screenshot / File &rarr;</a>
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- Feedback / Certificate Information -->
+              {% if sub.feedback %}
+                <div style="padding: 0.75rem 1rem; background: var(--slate-100); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--slate-700); margin-bottom: 0.75rem;">
+                  <strong>Recorded Feedback to Participant:</strong> "{{ sub.feedback }}"
+                </div>
+              {% endif %}
+
+              {% if sub.status == 'accepted' and sub.certificate_code %}
+                <div style="display: flex; justify-content: space-between; align-items: center; background: var(--success-bg); border: 1px solid #a7f3d0; border-radius: var(--radius-sm); padding: 0.75rem 1rem;">
+                  <span style="font-size: 0.85rem; color: var(--success-text); font-weight: 600;">
+                    ✓ Certificate Generated: <code>{{ sub.certificate_code }}</code>
+                  </span>
+                  <a href="{{ url_for('download_certificate', certificate_code=sub.certificate_code) }}" class="btn btn-sm btn-success">
+                    Download Certificate PDF
+                  </a>
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
+          <div class="empty-state-title">No submissions received yet</div>
+          <p class="empty-state-text">Registered participants will submit projects before the deadline.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 2: PARTICIPANTS ROSTER -->
+    <div class="tab-content" id="manage-participants">
+      {% if participants %}
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Participant Name</th>
+                <th>Account Email</th>
+                <th>Registration Date</th>
+                <th>Registration Status</th>
+                <th>Project Submission</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in participants %}
+                <tr>
+                  <td style="font-weight: 700; color: var(--slate-900);">{{ p.user_name }}</td>
+                  <td>{{ p.user_email }}</td>
+                  <td>{{ p.registered_at }}</td>
+                  <td><span class="badge badge-tag">{{ p.status }}</span></td>
+                  <td>
+                    {% if p.submission_status %}
+                      <span class="badge badge-{{ p.submission_status }}">
+                        {{ p.project_name }}: {{ p.submission_status }}
+                      </span>
+                    {% else %}
+                      <span style="color: var(--slate-400); font-size: 0.85rem;">Pending submission</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+          </div>
+          <div class="empty-state-title">No participants registered yet</div>
+          <p class="empty-state-text">Share the public hackathon page link with developers.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 3: CERTIFICATES ISSUED -->
+    <div class="tab-content" id="manage-certificates">
+      {% if certificates %}
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Certificate Code</th>
+                <th>Participant</th>
+                <th>Email</th>
+                <th>Project</th>
+                <th>Date Issued</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in certificates %}
+                <tr>
+                  <td>
+                    <code style="background: var(--slate-100); padding: 0.2rem 0.5rem; border-radius: 4px; font-weight: 700; color: #1e3a8a;">
+                      {{ c.certificate_code }}
+                    </code>
+                  </td>
+                  <td style="font-weight: 700; color: var(--slate-900);">{{ c.participant_name }}</td>
+                  <td>{{ c.participant_email }}</td>
+                  <td>{{ c.project_name }}</td>
+                  <td>{{ c.issued_at.split()[0] }}</td>
+                  <td>
+                    <div style="display: flex; gap: 0.4rem;">
+                      <a href="{{ url_for('download_certificate', certificate_code=c.certificate_code) }}" class="btn btn-sm btn-secondary">
+                        Download PDF
+                      </a>
+                      <a href="{{ url_for('verify_certificate', certificate_code=c.certificate_code) }}" target="_blank" class="btn btn-sm btn-outline">
+                        Verify
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            </svg>
+          </div>
+          <div class="empty-state-title">No certificates issued yet</div>
+          <p class="empty-state-text">Review submissions in the Submissions tab and accept qualifying projects to award certificates.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- REVIEW MODAL -->
+<div class="modal-backdrop" id="reviewModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div>
+        <h3 id="modalProjectName" style="font-size: 1.35rem; font-weight: 800; color: var(--slate-900);">Review Submission</h3>
+        <p id="modalSubmitterName" style="font-size: 0.85rem; color: var(--slate-500);"></p>
+      </div>
+      <button type="button" class="alert-close" onclick="closeReviewModal()" aria-label="Close modal">&times;</button>
+    </div>
+
+    <form id="reviewForm" method="POST" action="">
+      <!-- Decision Radio -->
+      <div class="form-group">
+        <label class="form-label">Review Decision <span style="color: var(--danger);">*</span></label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <label style="border: 1.5px solid var(--success); border-radius: var(--radius-md); padding: 0.85rem; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; background: var(--success-bg);">
+            <input type="radio" id="decisionAccept" name="decision" value="accepted" checked>
+            <div>
+              <div style="font-weight: 700; color: var(--success-text); font-size: 0.95rem;">Accept Project</div>
+              <div style="font-size: 0.75rem; color: #047857;">Auto-generates Certificate</div>
+            </div>
+          </label>
+
+          <label style="border: 1.5px solid var(--danger); border-radius: var(--radius-md); padding: 0.85rem; display: flex; align-items: center; gap: 0.6rem; cursor: pointer; background: var(--danger-bg);">
+            <input type="radio" id="decisionReject" name="decision" value="rejected">
+            <div>
+              <div style="font-weight: 700; color: var(--danger-text); font-size: 0.95rem;">Reject Project</div>
+              <div style="font-size: 0.75rem; color: #b91c1c;">No certificate issued</div>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Feedback -->
+      <div class="form-group">
+        <label for="reviewFeedback" class="form-label">Feedback Message (Optional)</label>
+        <textarea id="reviewFeedback" name="feedback" rows="4" class="form-control" placeholder="Provide constructive comments or explain what stood out about their project..."></textarea>
+      </div>
+
+      <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+        <button type="button" class="btn btn-secondary" onclick="closeReviewModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save Decision & Update Status</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

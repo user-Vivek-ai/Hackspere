@@ -1,0 +1,288 @@
+{% extends "base.html" %}
+
+{% block title %}Participant Dashboard - HackSphere{% endblock %}
+
+{% block content %}
+<div class="dashboard-header">
+  <div class="container">
+    <div class="dashboard-title-row">
+      <div>
+        <h1 style="font-size: 2.2rem; font-weight: 800; color: var(--slate-900);">Participant Dashboard</h1>
+        <p style="color: var(--slate-600); margin-top: 0.25rem;">Welcome back, <strong>{{ current_user.name }}</strong> ({{ current_user.email }})</p>
+      </div>
+      <div>
+        <a href="{{ url_for('hackathons_list') }}" class="btn btn-primary">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+          </svg>
+          Explore More Hackathons
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container" style="padding-bottom: 4rem;">
+  <div class="tabs-wrapper">
+    <!-- Tabs Navigation -->
+    <div class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-registrations">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+        </svg>
+        Registered Hackathons ({{ registrations|length }})
+      </button>
+
+      <button class="tab-btn" data-tab="tab-submissions">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+        </svg>
+        Project Submissions ({{ submissions|length }})
+      </button>
+
+      <button class="tab-btn" data-tab="tab-certificates">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+        </svg>
+        Earned Certificates ({{ certificates|length }})
+      </button>
+    </div>
+
+    <!-- TAB 1: REGISTRATIONS -->
+    <div class="tab-content active" id="tab-registrations">
+      {% if registrations %}
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Hackathon</th>
+                <th>Dates</th>
+                <th>Format</th>
+                <th>Registration Date</th>
+                <th>Submission Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for reg in registrations %}
+                <tr>
+                  <td>
+                    <a href="{{ url_for('hackathon_detail', hackathon_id=reg.hackathon_id) }}" style="font-weight: 700; color: var(--slate-900);">
+                      {{ reg.hackathon_title }}
+                    </a>
+                    <div style="font-size: 0.8rem; color: var(--slate-500);">Reg Status: {{ reg.status|capitalize }}</div>
+                  </td>
+                  <td>{{ reg.start_date }} to {{ reg.end_date }}</td>
+                  <td><span class="badge badge-{{ reg.format }}">{{ reg.format }}</span></td>
+                  <td>{{ reg.registered_at.split()[0] }}</td>
+                  <td>
+                    {% if reg.submission_status %}
+                      <span class="badge badge-{{ reg.submission_status }}">
+                        {{ reg.submission_status }}
+                      </span>
+                    {% else %}
+                      <span class="badge badge-tag">Not Submitted</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if reg.submission_id %}
+                      <a href="{{ url_for('submit_project', hackathon_id=reg.hackathon_id) }}" class="btn btn-sm btn-secondary">
+                        Edit Project
+                      </a>
+                    {% else %}
+                      <a href="{{ url_for('submit_project', hackathon_id=reg.hackathon_id) }}" class="btn btn-sm btn-primary">
+                        Submit Project
+                      </a>
+                    {% endif %}
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+            </svg>
+          </div>
+          <div class="empty-state-title">You haven't registered for any hackathons yet</div>
+          <p class="empty-state-text">Explore active challenges, register with one click, and build your portfolio.</p>
+          <a href="{{ url_for('hackathons_list') }}" class="btn btn-primary">Browse Hackathons</a>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 2: SUBMISSIONS -->
+    <div class="tab-content" id="tab-submissions">
+      {% if submissions %}
+        <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+          {% for sub in submissions %}
+            <div class="content-block">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                  <div style="font-size: 0.85rem; color: var(--slate-500); font-weight: 600;">{{ sub.hackathon_title }}</div>
+                  <h3 style="font-size: 1.4rem; font-weight: 800; color: var(--slate-900);">{{ sub.project_name }}</h3>
+                  <div style="font-size: 0.85rem; color: var(--slate-500); margin-top: 0.2rem;">Submitted on {{ sub.submitted_at }}</div>
+                </div>
+
+                <div style="text-align: right;">
+                  <span class="badge badge-{{ sub.status }}" style="font-size: 0.85rem; padding: 0.35rem 0.85rem;">
+                    Status: {{ sub.status|upper }}
+                  </span>
+                </div>
+              </div>
+
+              <p style="color: var(--slate-700); font-size: 0.95rem; line-height: 1.6; margin-bottom: 1.25rem;">
+                {{ sub.description }}
+              </p>
+
+              <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; font-size: 0.85rem; color: var(--slate-600); margin-bottom: 1.25rem; padding: 0.75rem 1rem; background: var(--slate-50); border-radius: var(--radius-md);">
+                <div><strong>Team:</strong> {{ sub.team_members or current_user.name }}</div>
+                <div>
+                  <strong>Live Demo:</strong>
+                  <a href="{{ sub.demo_url }}" target="_blank" rel="noopener noreferrer" style="font-weight: 600;">Visit URL &rarr;</a>
+                </div>
+                {% if sub.repo_url %}
+                  <div>
+                    <strong>Repository:</strong>
+                    <a href="{{ sub.repo_url }}" target="_blank" rel="noopener noreferrer" style="font-weight: 600;">Source Code &rarr;</a>
+                  </div>
+                {% endif %}
+              </div>
+
+              <!-- Status Explanations & Certificate Download -->
+              {% if sub.status == 'accepted' %}
+                <div style="background: var(--success-bg); border: 1.5px solid #a7f3d0; border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                      <div style="font-weight: 700; color: var(--success-text); font-size: 1rem; display: flex; align-items: center; gap: 0.4rem;">
+                        <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                        Project Accepted by Organizer!
+                      </div>
+                      {% if sub.feedback %}
+                        <div style="font-size: 0.9rem; color: #064e3b; margin-top: 0.4rem;">
+                          <strong>Organizer Feedback:</strong> "{{ sub.feedback }}"
+                        </div>
+                      {% endif %}
+                    </div>
+
+                    {% if sub.certificate_code %}
+                      <a href="{{ url_for('download_certificate', certificate_code=sub.certificate_code) }}" class="btn btn-success">
+                        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        Download PDF Certificate
+                      </a>
+                    {% endif %}
+                  </div>
+                </div>
+
+              {% elif sub.status == 'rejected' %}
+                <div style="background: var(--danger-bg); border: 1px solid #fecaca; border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem;">
+                  <div style="font-weight: 700; color: var(--danger-text); font-size: 0.95rem;">Project Not Accepted</div>
+                  {% if sub.feedback %}
+                    <div style="font-size: 0.85rem; color: #7f1d1d; margin-top: 0.35rem;">
+                      <strong>Organizer Note:</strong> {{ sub.feedback }}
+                    </div>
+                  {% endif %}
+                  <div style="font-size: 0.8rem; color: var(--slate-500); margin-top: 0.5rem;">
+                    Note: Participation certificates are only awarded to accepted submissions.
+                  </div>
+                </div>
+
+              {% else %}
+                <div style="background: var(--warning-bg); border: 1px solid #fde68a; border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem; font-size: 0.9rem; color: var(--warning-text);">
+                  ⏳ <strong>Under Review:</strong> Your project is currently being evaluated by the hackathon organizers. Your certificate will be generated and downloadable right here as soon as it is accepted!
+                </div>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+          </div>
+          <div class="empty-state-title">No projects submitted yet</div>
+          <p class="empty-state-text">Once you register for a hackathon, submit your project before the deadline.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 3: CERTIFICATES -->
+    <div class="tab-content" id="tab-certificates">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 0.75rem;">
+        <svg width="22" height="22" fill="none" stroke="#2563eb" viewBox="0 0 24 24" style="flex-shrink: 0;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <div style="font-size: 0.9rem; color: #1e40af;">
+          <strong>Official Certification Rule:</strong> Every certificate on HackSphere represents an accepted project submission. Each PDF is rendered in vector format with your name, event details, organizer endorsement, and a verified registry code.
+        </div>
+      </div>
+
+      {% if certificates %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 2rem;">
+          {% for cert in certificates %}
+            <div class="certificate-card">
+              <div class="certificate-seal-badge">
+                <svg width="24" height="24" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+              </div>
+
+              <div>
+                <span class="badge" style="background: #fef3c7; color: #92400e; margin-bottom: 0.5rem;">VERIFIED COMPLETION</span>
+                <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--slate-900); padding-right: 3rem;">
+                  {{ cert.hackathon_title }}
+                </h3>
+                <div style="font-size: 0.9rem; color: var(--slate-600); margin-top: 0.25rem;">
+                  Awarded for project: <strong>{{ cert.project_name }}</strong>
+                </div>
+              </div>
+
+              <div style="font-size: 0.85rem; color: var(--slate-600); display: flex; flex-direction: column; gap: 0.35rem; padding: 0.75rem 0; border-top: 1px dashed #fde68a; border-bottom: 1px dashed #fde68a;">
+                <div><strong>Recipient:</strong> {{ cert.participant_name }}</div>
+                <div><strong>Organizer:</strong> {{ cert.organizer_name }}</div>
+                <div><strong>Event Dates:</strong> {{ cert.event_dates }}</div>
+                <div><strong>Issued Date:</strong> {{ cert.issued_at.split()[0] }}</div>
+                <div>
+                  <strong>Certificate ID:</strong>
+                  <code style="background: #ffffff; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 700; color: #1e3a8a;">{{ cert.certificate_code }}</code>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 0.75rem; margin-top: 0.5rem;">
+                <a href="{{ url_for('download_certificate', certificate_code=cert.certificate_code) }}" class="btn btn-primary" style="flex: 1;">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                  </svg>
+                  Download PDF
+                </a>
+                <a href="{{ url_for('verify_certificate', certificate_code=cert.certificate_code) }}" target="_blank" class="btn btn-secondary">
+                  Verify Registry
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+            </svg>
+          </div>
+          <div class="empty-state-title">No certificates earned yet</div>
+          <p class="empty-state-text">Submit your hackathon project before the deadline. Once the organizer reviews and marks your project as Accepted, your certificate will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

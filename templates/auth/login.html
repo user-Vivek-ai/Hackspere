@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Log In - HackSphere{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <h1>Welcome Back</h1>
+      <p>Log in to your HackSphere account</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth_login') }}" novalidate>
+      {% if next_url %}
+        <input type="hidden" name="next" value="{{ next_url }}">
+      {% endif %}
+
+      <div class="form-group">
+        <label for="loginEmail" class="form-label">Email Address</label>
+        <input type="email" id="loginEmail" name="email" value="{{ email or '' }}" class="form-control" placeholder="name@example.com" required autocomplete="email">
+      </div>
+
+      <div class="form-group">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+          <label for="loginPassword" class="form-label" style="margin-bottom: 0;">Password</label>
+          <a href="{{ url_for('auth_forgot_password') }}" style="font-size: 0.8rem;">Forgot password?</a>
+        </div>
+        <div class="password-input-group">
+          <input type="password" id="loginPassword" name="password" class="form-control" placeholder="Enter your password" required autocomplete="current-password">
+          <button type="button" class="password-toggle-btn" data-target="loginPassword" aria-label="Toggle password visibility">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem; padding: 0.75rem;">
+        Log In
+      </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--slate-600);">
+      Don't have an account? <a href="{{ url_for('auth_signup') }}" style="font-weight: 600;">Sign up here</a>
+    </div>
+
+    <!-- Quick Demo Accounts Switcher -->
+    <div class="demo-creds-card">
+      <div class="demo-creds-title">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+        </svg>
+        <span>Demo Quick-Fill Accounts (Password: Password123!)</span>
+      </div>
+      <div class="demo-creds-list">
+        <div class="demo-chip" onclick="fillCredentials('alex.dev@example.com', 'Password123!')">
+          <div>
+            <strong>Alex Rivera</strong> <span class="badge badge-tag" style="font-size: 0.7rem;">Participant</span>
+            <div style="font-size: 0.75rem; color: var(--slate-500);">alex.dev@example.com (Has Accepted project & Certificate)</div>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Fill</span>
+        </div>
+
+        <div class="demo-chip" onclick="fillCredentials('sarah.organizer@example.com', 'Password123!')">
+          <div>
+            <strong>Sarah Chen</strong> <span class="badge badge-tag" style="font-size: 0.7rem;">Organizer</span>
+            <div style="font-size: 0.75rem; color: var(--slate-500);">sarah.organizer@example.com (Hosts AI & Climate Hackathons)</div>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Fill</span>
+        </div>
+
+        <div class="demo-chip" onclick="fillCredentials('david.host@example.com', 'Password123!')">
+          <div>
+            <strong>David Miller</strong> <span class="badge badge-tag" style="font-size: 0.7rem;">Organizer</span>
+            <div style="font-size: 0.75rem; color: var(--slate-500);">david.host@example.com (Hosts Web3 & HealthTech)</div>
+          </div>
+          <span style="font-size: 0.8rem; color: var(--primary); font-weight: 600;">Fill</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

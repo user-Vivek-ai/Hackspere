@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ hackathon.title }} - HackSphere{% endblock %}
+
+{% block content %}
+<div class="container container-narrow" style="padding-top: 3rem; padding-bottom: 5rem;">
+  <div style="margin-bottom: 2rem;">
+    <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=hackathon.id) }}" style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; font-weight: 600; margin-bottom: 0.75rem;">
+      &larr; Back to Event Management
+    </a>
+    <h1 style="font-size: 2.25rem; font-weight: 800; color: var(--slate-900);">Edit Hackathon</h1>
+    <p style="color: var(--slate-600); margin-top: 0.25rem;">Updating: <strong>{{ hackathon.title }}</strong></p>
+  </div>
+
+  <div class="content-block">
+    <form method="POST" action="{{ url_for('hackathon_edit', hackathon_id=hackathon.id) }}">
+      <!-- Title & Tagline -->
+      <div class="form-group">
+        <label for="editTitle" class="form-label">Hackathon Title <span style="color: var(--danger);">*</span></label>
+        <input type="text" id="editTitle" name="title" value="{{ hackathon.title }}" class="form-control" required>
+      </div>
+
+      <div class="form-group">
+        <label for="editTagline" class="form-label">Short Tagline</label>
+        <input type="text" id="editTagline" name="tagline" value="{{ hackathon.tagline or '' }}" class="form-control">
+      </div>
+
+      <!-- Description -->
+      <div class="form-group">
+        <label for="editDesc" class="form-label">Full Description <span style="color: var(--danger);">*</span></label>
+        <textarea id="editDesc" name="description" rows="5" class="form-control" required>{{ hackathon.description }}</textarea>
+      </div>
+
+      <!-- Theme & Format Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="editTheme" class="form-label">Topic / Theme <span style="color: var(--danger);">*</span></label>
+          <input type="text" id="editTheme" name="theme" value="{{ hackathon.theme }}" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="editFormat" class="form-label">Format <span style="color: var(--danger);">*</span></label>
+          <select id="editFormat" name="format" class="form-control" required>
+            <option value="online" {% if hackathon.format == 'online' %}selected{% endif %}>Online / Virtual</option>
+            <option value="in-person" {% if hackathon.format == 'in-person' %}selected{% endif %}>In-Person</option>
+            <option value="hybrid" {% if hackathon.format == 'hybrid' %}selected{% endif %}>Hybrid</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Location / Platform -->
+      <div class="form-group">
+        <label for="editLocation" class="form-label">Location or Online Details</label>
+        <input type="text" id="editLocation" name="location" value="{{ hackathon.location or '' }}" class="form-control">
+      </div>
+
+      <!-- Dates Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="editStartDate" class="form-label">Start Date <span style="color: var(--danger);">*</span></label>
+          <input type="date" id="editStartDate" name="start_date" value="{{ hackathon.start_date }}" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label for="editEndDate" class="form-label">End Date <span style="color: var(--danger);">*</span></label>
+          <input type="date" id="editEndDate" name="end_date" value="{{ hackathon.end_date }}" class="form-control" required>
+        </div>
+      </div>
+
+      <!-- Deadlines Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="editRegDeadline" class="form-label">Registration Deadline</label>
+          <input type="date" id="editRegDeadline" name="registration_deadline" value="{{ hackathon.registration_deadline }}" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="editSubDeadline" class="form-label">Submission Deadline</label>
+          <input type="date" id="editSubDeadline" name="submission_deadline" value="{{ hackathon.submission_deadline }}" class="form-control">
+        </div>
+      </div>
+
+      <!-- Team Size & Eligibility -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="editTeamMin" class="form-label">Min Team Size</label>
+          <input type="number" id="editTeamMin" name="team_size_min" value="{{ hackathon.team_size_min }}" min="1" max="20" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="editTeamMax" class="form-label">Max Team Size</label>
+          <input type="number" id="editTeamMax" name="team_size_max" value="{{ hackathon.team_size_max }}" min="1" max="20" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="editEligibility" class="form-label">Eligibility Criteria</label>
+          <input type="text" id="editEligibility" name="eligibility" value="{{ hackathon.eligibility or '' }}" class="form-control">
+        </div>
+      </div>
+
+      <!-- Rules & Schedule -->
+      <div class="form-group">
+        <label for="editRules" class="form-label">Rules & Code of Conduct</label>
+        <textarea id="editRules" name="rules" rows="4" class="form-control">{{ hackathon.rules or '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="editSchedule" class="form-label">Schedule & Milestones</label>
+        <textarea id="editSchedule" name="schedule" rows="4" class="form-control">{{ hackathon.schedule or '' }}</textarea>
+      </div>
+
+      <!-- Judging Criteria & Prizes -->
+      <div class="form-group">
+        <label for="editJudging" class="form-label">Judging Criteria</label>
+        <textarea id="editJudging" name="judging_criteria" rows="3" class="form-control">{{ hackathon.judging_criteria or '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="editPrizes" class="form-label">Prizes & Awards</label>
+        <input type="text" id="editPrizes" name="prizes" value="{{ hackathon.prizes or '' }}" class="form-control">
+      </div>
+
+      <!-- Banner URL & Status -->
+      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
+        <div class="form-group">
+          <label for="editBanner" class="form-label">Cover Banner Image URL</label>
+          <input type="url" id="editBanner" name="banner_url" value="{{ hackathon.banner_url or '' }}" class="form-control">
+        </div>
+
+        <div class="form-group">
+          <label for="editStatus" class="form-label">Status</label>
+          <select id="editStatus" name="status" class="form-control">
+            <option value="upcoming" {% if hackathon.status == 'upcoming' %}selected{% endif %}>Upcoming</option>
+            <option value="ongoing" {% if hackathon.status == 'ongoing' %}selected{% endif %}>Ongoing</option>
+            <option value="ended" {% if hackathon.status == 'ended' %}selected{% endif %}>Ended</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
+        <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=hackathon.id) }}" class="btn btn-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

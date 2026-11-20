@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Explore Hackathons - HackSphere{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top: 3rem; padding-bottom: 4rem;">
+  <!-- Header -->
+  <div style="margin-bottom: 2rem;">
+    <h1 style="font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem;">Explore Hackathons</h1>
+    <p style="color: var(--slate-600); font-size: 1.1rem;">Discover upcoming and active competitions. Build projects and earn certified credentials.</p>
+  </div>
+
+  <!-- Filter & Search Bar -->
+  <div class="filter-bar">
+    <form action="{{ url_for('hackathons_list') }}" method="GET" class="filter-grid">
+      <!-- Search Input -->
+      <div>
+        <label for="filterQuery" class="form-label">Search Keywords</label>
+        <input type="text" id="filterQuery" name="q" value="{{ search_query }}" placeholder="Search by title, theme, tech..." class="form-control">
+      </div>
+
+      <!-- Format Filter -->
+      <div>
+        <label for="filterFormat" class="form-label">Format</label>
+        <select id="filterFormat" name="format" class="form-control" onchange="this.form.submit()">
+          <option value="all" {% if not format_filter or format_filter == 'all' %}selected{% endif %}>All Formats</option>
+          <option value="online" {% if format_filter == 'online' %}selected{% endif %}>Online</option>
+          <option value="in-person" {% if format_filter == 'in-person' %}selected{% endif %}>In-Person</option>
+          <option value="hybrid" {% if format_filter == 'hybrid' %}selected{% endif %}>Hybrid</option>
+        </select>
+      </div>
+
+      <!-- Theme / Topic Filter -->
+      <div>
+        <label for="filterTheme" class="form-label">Topic / Theme</label>
+        <select id="filterTheme" name="theme" class="form-control" onchange="this.form.submit()">
+          <option value="all" {% if not theme_filter or theme_filter == 'all' %}selected{% endif %}>All Topics</option>
+          {% for theme in all_themes %}
+            <option value="{{ theme }}" {% if theme_filter == theme %}selected{% endif %}>{{ theme }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <!-- Status / Date Filter -->
+      <div>
+        <label for="filterStatus" class="form-label">Status</label>
+        <select id="filterStatus" name="status" class="form-control" onchange="this.form.submit()">
+          <option value="all" {% if not status_filter or status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+          <option value="ongoing" {% if status_filter == 'ongoing' %}selected{% endif %}>Ongoing</option>
+          <option value="upcoming" {% if status_filter == 'upcoming' %}selected{% endif %}>Upcoming</option>
+          <option value="ended" {% if status_filter == 'ended' %}selected{% endif %}>Ended</option>
+        </select>
+      </div>
+
+      <!-- Submit / Reset Actions -->
+      <div style="display: flex; gap: 0.5rem; align-items: flex-end; padding-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if search_query or (format_filter and format_filter != 'all') or (theme_filter and theme_filter != 'all') or (status_filter and status_filter != 'all') %}
+          <a href="{{ url_for('hackathons_list') }}" class="btn btn-secondary" title="Reset Filters">Reset</a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+
+  <!-- Results Count -->
+  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+    <div style="font-weight: 600; color: var(--slate-600);">
+      Showing <span style="color: var(--slate-900);">{{ hackathons|length }}</span> hackathon{{ 's' if hackathons|length != 1 else '' }}
+      {% if search_query %} for "{{ search_query }}"{% endif %}
+    </div>
+
+    <div>
+      <!-- Sort By -->
+      <form action="{{ url_for('hackathons_list') }}" method="GET" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+        {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
+        {% if format_filter %}<input type="hidden" name="format" value="{{ format_filter }}">{% endif %}
+        {% if theme_filter %}<input type="hidden" name="theme" value="{{ theme_filter }}">{% endif %}
+        {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+        
+        <span style="font-size: 0.85rem; color: var(--slate-500); font-weight: 600;">Sort:</span>
+        <select name="sort" class="form-control" style="width: auto; padding: 0.35rem 0.6rem; font-size: 0.85rem;" onchange="this.form.submit()">
+          <option value="date_asc" {% if sort_by == 'date_asc' %}selected{% endif %}>Starting Soonest</option>
+          <option value="date_desc" {% if sort_by == 'date_desc' %}selected{% endif %}>Latest Added</option>
+          <option value="deadline" {% if sort_by == 'deadline' %}selected{% endif %}>Submission Deadline</option>
+        </select>
+      </form>
+    </div>
+  </div>
+
+  <!-- Hackathon Grid -->
+  {% if hackathons %}
+    <div class="hackathons-grid">
+      {% for h in hackathons %}
+        <div class="hackathon-card">
+          <div class="card-banner">
+            <img src="{{ h.banner_url or 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80' }}" alt="{{ h.title }}" loading="lazy">
+            <div class="card-badges">
+              <span class="badge badge-{{ h.format }}">{{ h.format }}</span>
+              <span class="badge badge-{{ h.status }}">{{ h.status }}</span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="card-theme">{{ h.theme }}</div>
+            <h3 class="card-title">
+              <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}">{{ h.title }}</a>
+            </h3>
+            <p class="card-desc">{{ h.tagline or h.description }}</p>
+
+            <div class="card-meta">
+              <div class="meta-row">
+                <div class="meta-item">
+                  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                  </svg>
+                  <span>{{ h.start_date }} - {{ h.end_date }}</span>
+                </div>
+                <div class="meta-item">
+                  <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+                  </svg>
+                  <span>{{ h.participant_count }} Registered</span>
+                </div>
+              </div>
+
+              {% if h.location %}
+                <div class="meta-row" style="font-size: 0.8rem; color: var(--slate-500);">
+                  <div class="meta-item">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                    </svg>
+                    <span>{{ h.location }}</span>
+                  </div>
+                </div>
+              {% endif %}
+
+              {% if h.prizes %}
+                <div class="meta-row" style="color: var(--accent); font-weight: 600;">
+                  <div class="meta-item">
+                    <svg width="15" height="15" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 5.707a1 1 0 00-1.414-1.414l-2 2a1 1 0 000 1.414l2 2a1 1 0 001.414-1.414L8.414 10l1.293-1.293z" clip-rule="evenodd"/>
+                    </svg>
+                    <span>{{ h.prizes.split('(')[0] }}</span>
+                  </div>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <span style="font-size: 0.85rem; color: var(--slate-500);">Hosted by {{ h.organizer_name }}</span>
+            <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}" class="btn btn-sm btn-primary">Details & Register</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">
+        <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </div>
+      <div class="empty-state-title">No hackathons match your search</div>
+      <p class="empty-state-text">Try adjusting or resetting your search filters to find more events.</p>
+      <a href="{{ url_for('hackathons_list') }}" class="btn btn-secondary">Clear All Filters</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

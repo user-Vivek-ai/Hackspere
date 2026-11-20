@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - HackSphere{% endblock %}
+
+{% block content %}
+<div class="auth-wrapper">
+  <div class="auth-card" style="max-width: 520px;">
+    <div class="auth-header">
+      <h1>Join HackSphere</h1>
+      <p>Create your account to discover hackathons or host your own.</p>
+    </div>
+
+    <form method="POST" action="{{ url_for('auth_signup') }}" novalidate>
+      <!-- Role Selection -->
+      <label class="form-label">I want to join as a:</label>
+      <div class="role-selector">
+        <label class="role-option {% if not role or role == 'participant' %}selected{% endif %}" id="roleParticipantOpt">
+          <input type="radio" name="role" value="participant" {% if not role or role == 'participant' %}checked{% endif %}>
+          <div class="role-title">Participant</div>
+          <div class="role-desc">Register, build projects & earn verified certificates</div>
+        </label>
+
+        <label class="role-option {% if role == 'organizer' %}selected{% endif %}" id="roleOrganizerOpt">
+          <input type="radio" name="role" value="organizer" {% if role == 'organizer' %}checked{% endif %}>
+          <div class="role-title">Organizer / Admin</div>
+          <div class="role-desc">Host hackathons, review submissions & award certificates</div>
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label for="signupName" class="form-label">Full Name</label>
+        <input type="text" id="signupName" name="name" value="{{ name or '' }}" class="form-control" placeholder="e.g. Alex Rivera" required autocomplete="name">
+      </div>
+
+      <div class="form-group">
+        <label for="signupEmail" class="form-label">Email Address</label>
+        <input type="email" id="signupEmail" name="email" value="{{ email or '' }}" class="form-control" placeholder="name@example.com" required autocomplete="email">
+        <span style="font-size: 0.75rem; color: var(--slate-500);">We'll use this for your registrations and official certificates.</span>
+      </div>
+
+      <div class="form-group">
+        <label for="signupPassword" class="form-label">Password</label>
+        <div class="password-input-group">
+          <input type="password" id="signupPassword" name="password" class="form-control" placeholder="At least 8 characters with letters & numbers" required autocomplete="new-password">
+          <button type="button" class="password-toggle-btn" data-target="signupPassword" aria-label="Toggle password visibility">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="confirmPassword" class="form-label">Confirm Password</label>
+        <div class="password-input-group">
+          <input type="password" id="confirmPassword" name="confirm_password" class="form-control" placeholder="Re-type your password" required autocomplete="new-password">
+          <button type="button" class="password-toggle-btn" data-target="confirmPassword" aria-label="Toggle password visibility">
+            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div style="background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.8rem; color: var(--slate-600);">
+        <strong>Password Requirements:</strong>
+        <ul style="margin-left: 1.25rem; margin-top: 0.25rem;">
+          <li>Minimum 8 characters in length</li>
+          <li>Must contain at least one letter (a-z) and one number (0-9)</li>
+          <li>Secured with PBKDF2-HMAC-SHA256 salted hashing</li>
+        </ul>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
+        Create My Account
+      </button>
+    </form>
+
+    <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--slate-600);">
+      Already have an account? <a href="{{ url_for('auth_login') }}" style="font-weight: 600;">Log in here</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

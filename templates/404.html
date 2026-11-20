@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found - HackSphere{% endblock %}
+
+{% block content %}
+<div class="container container-narrow" style="padding-top: 5rem; padding-bottom: 6rem; text-align: center;">
+  <div style="font-size: 5rem; font-weight: 800; color: var(--primary); line-height: 1;">404</div>
+  <h1 style="font-size: 2rem; font-weight: 800; margin: 1rem 0 0.5rem;">Page Not Found</h1>
+  <p style="color: var(--slate-600); max-width: 480px; margin: 0 auto 2rem;">
+    The page or hackathon you're looking for doesn't exist or may have been moved.
+  </p>
+  <div style="display: flex; gap: 1rem; justify-content: center;">
+    <a href="{{ url_for('index') }}" class="btn btn-primary">Go to Homepage</a>
+    <a href="{{ url_for('hackathons_list') }}" class="btn btn-secondary">Explore Hackathons</a>
+  </div>
+</div>
+{% endblock %}

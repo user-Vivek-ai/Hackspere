@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}{{ hackathon.title }} - HackSphere{% endblock %}
+
+{% block content %}
+<!-- Hero Header -->
+<div class="detail-hero">
+  <div class="container">
+    <div class="detail-header-grid">
+      <div>
+        <div style="display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap;">
+          <span class="badge badge-{{ hackathon.format }}">{{ hackathon.format }}</span>
+          <span class="badge badge-{{ hackathon.status }}">{{ hackathon.status }}</span>
+          <span class="badge badge-tag" style="background: rgba(255,255,255,0.15); color: #ffffff; border: none;">{{ hackathon.theme }}</span>
+        </div>
+
+        <h1 class="detail-title">{{ hackathon.title }}</h1>
+        <p class="detail-tagline">{{ hackathon.tagline or hackathon.description }}</p>
+
+        <div class="detail-meta-pills">
+          <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: #cbd5e1;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+            </svg>
+            <span><strong>Dates:</strong> {{ hackathon.start_date }} - {{ hackathon.end_date }}</span>
+          </div>
+
+          {% if hackathon.location %}
+            <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: #cbd5e1;">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              <span>{{ hackathon.location }}</span>
+            </div>
+          {% endif %}
+
+          <div style="display: flex; align-items: center; gap: 0.4rem; font-size: 0.9rem; color: #cbd5e1;">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span>{{ participant_count }} builders registered</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action CTA Card -->
+      <div class="cta-card">
+        <div class="countdown-box">
+          <div class="countdown-label">Project Submissions Due</div>
+          <div class="countdown-val">{{ hackathon.submission_deadline }}</div>
+          <div style="font-size: 0.75rem; color: var(--slate-500); margin-top: 0.2rem;">Registration Closes: {{ hackathon.registration_deadline }}</div>
+        </div>
+
+        {% if not current_user %}
+          <!-- Unauthenticated User -->
+          <div style="text-align: center;">
+            <p style="font-size: 0.9rem; color: var(--slate-600); margin-bottom: 1rem;">Log in to register and submit your project to this hackathon.</p>
+            <a href="{{ url_for('auth_login', next=request.path) }}" class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;">Log In to Register</a>
+            <a href="{{ url_for('auth_signup', role='participant') }}" class="btn btn-secondary" style="width: 100%;">Create Free Account</a>
+          </div>
+
+        {% elif current_user.role == 'organizer' %}
+          <!-- Organizer View -->
+          {% if current_user.id == hackathon.organizer_id %}
+            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+              <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-sm); padding: 0.6rem; font-size: 0.85rem; color: #1e40af; text-align: center;">
+                You are the host of this hackathon
+              </div>
+              <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=hackathon.id) }}" class="btn btn-primary" style="width: 100%;">
+                Manage & Review Submissions
+              </a>
+              <a href="{{ url_for('hackathon_edit', hackathon_id=hackathon.id) }}" class="btn btn-secondary" style="width: 100%;">
+                Edit Hackathon Details
+              </a>
+            </div>
+          {% else %}
+            <div style="text-align: center; color: var(--slate-600); font-size: 0.9rem;">
+              You are logged in as an Organizer.<br>
+              <a href="{{ url_for('organizer_dashboard') }}" class="btn btn-secondary" style="width: 100%; margin-top: 0.75rem;">Go to Organizer Hub</a>
+            </div>
+          {% endif %}
+
+        {% else %}
+          <!-- Participant View -->
+          {% if is_registered %}
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div style="background: var(--success-bg); border: 1px solid #a7f3d0; border-radius: var(--radius-md); padding: 0.75rem; display: flex; align-items: center; gap: 0.6rem;">
+                <svg width="20" height="20" fill="none" stroke="var(--success)" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                <span style="font-weight: 700; color: var(--success-text); font-size: 0.9rem;">You are Registered!</span>
+              </div>
+
+              {% if user_submission %}
+                <div style="background: var(--slate-50); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem;">
+                  <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 600;">YOUR SUBMISSION</div>
+                  <div style="font-weight: 700; color: var(--slate-900); font-size: 1.05rem; margin-top: 0.2rem;">{{ user_submission.project_name }}</div>
+                  
+                  <div style="margin-top: 0.6rem;">
+                    <span class="badge badge-{{ user_submission.status }}">
+                      Status: {{ user_submission.status }}
+                    </span>
+                  </div>
+
+                  {% if user_submission.status == 'accepted' %}
+                    <div style="margin-top: 0.75rem; padding: 0.6rem; background: var(--success-bg); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--success-text);">
+                      ✓ Project Accepted by Organizer!
+                      {% if user_certificate %}
+                        <div style="margin-top: 0.5rem;">
+                          <a href="{{ url_for('download_certificate', certificate_code=user_certificate.certificate_code) }}" class="btn btn-sm btn-success" style="width: 100%;">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Download Certificate (PDF)
+                          </a>
+                        </div>
+                      {% endif %}
+                    </div>
+                  {% elif user_submission.status == 'rejected' %}
+                    <div style="margin-top: 0.75rem; padding: 0.6rem; background: var(--danger-bg); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--danger-text);">
+                      <strong>Review Note:</strong> {{ user_submission.feedback or 'Not accepted.' }}
+                    </div>
+                  {% else %}
+                    <div style="margin-top: 0.75rem; padding: 0.6rem; background: var(--warning-bg); border-radius: var(--radius-sm); font-size: 0.85rem; color: var(--warning-text);">
+                      Awaiting organizer evaluation. Certificates are issued automatically upon project acceptance.
+                    </div>
+                  {% endif %}
+
+                  <div style="margin-top: 0.75rem;">
+                    <a href="{{ url_for('submit_project', hackathon_id=hackathon.id) }}" class="btn btn-sm btn-secondary" style="width: 100%;">Edit Submission</a>
+                  </div>
+                </div>
+              {% else %}
+                <a href="{{ url_for('submit_project', hackathon_id=hackathon.id) }}" class="btn btn-primary" style="width: 100%;">
+                  <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                  </svg>
+                  Submit Project
+                </a>
+              {% endif %}
+            </div>
+          {% else %}
+            <!-- Not Registered yet -->
+            <form action="{{ url_for('register_hackathon', hackathon_id=hackathon.id) }}" method="POST">
+              <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.85rem;">
+                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                </svg>
+                Register for Hackathon
+              </button>
+              <div style="font-size: 0.75rem; color: var(--slate-500); text-align: center; margin-top: 0.5rem;">
+                Using your account email: <strong>{{ current_user.email }}</strong>
+              </div>
+            </form>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Detail Layout -->
+<div class="container">
+  <div class="detail-layout">
+    <!-- Left Column: Details -->
+    <div class="detail-content">
+      <!-- Overview & Description -->
+      <div class="content-block">
+        <h2 class="block-title">
+          <svg width="22" height="22" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          About the Hackathon
+        </h2>
+        <div style="font-size: 1.05rem; color: var(--slate-700); white-space: pre-line; line-height: 1.7;">
+          {{ hackathon.description }}
+        </div>
+      </div>
+
+      <!-- Schedule & Timeline -->
+      {% if hackathon.schedule %}
+        <div class="content-block">
+          <h2 class="block-title">
+            <svg width="22" height="22" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Schedule & Important Dates
+          </h2>
+          <div style="white-space: pre-line; color: var(--slate-700); line-height: 1.7;">
+            {{ hackathon.schedule }}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Rules & Code of Conduct -->
+      {% if hackathon.rules %}
+        <div class="content-block">
+          <h2 class="block-title">
+            <svg width="22" height="22" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            Rules & Requirements
+          </h2>
+          <div style="white-space: pre-line; color: var(--slate-700); line-height: 1.7;">
+            {{ hackathon.rules }}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Judging Criteria -->
+      {% if hackathon.judging_criteria %}
+        <div class="content-block">
+          <h2 class="block-title">
+            <svg width="22" height="22" fill="none" stroke="var(--primary)" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+            Judging Criteria
+          </h2>
+          <div style="white-space: pre-line; color: var(--slate-700); line-height: 1.7;">
+            {{ hackathon.judging_criteria }}
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Right Column: Sidebar Meta -->
+    <div style="display: flex; flex-direction: column; gap: 1.75rem;">
+      <!-- Prizes Block -->
+      {% if hackathon.prizes %}
+        <div class="content-block" style="background: linear-gradient(135deg, #ffffff 0%, #fffbeb 100%); border-color: #fde68a;">
+          <h3 style="font-size: 1.15rem; font-weight: 700; color: #92400e; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.4rem;">
+            <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M5 2a2 2 0 00-2 2v14l3.5-2 3.5 2 3.5-2 3.5 2V4a2 2 0 00-2-2H5zm4.707 5.707a1 1 0 00-1.414-1.414L8.414 10l1.293-1.293z" clip-rule="evenodd"/>
+            </svg>
+            Prizes & Rewards
+          </h3>
+          <div style="font-size: 0.95rem; color: #78350f; font-weight: 600; line-height: 1.5;">
+            {{ hackathon.prizes }}
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- Eligibility & Team Size -->
+      <div class="content-block">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--slate-900); margin-bottom: 0.75rem;">Eligibility & Teams</h3>
+        <div style="font-size: 0.9rem; color: var(--slate-600); display: flex; flex-direction: column; gap: 0.5rem;">
+          <div><strong>Team Size:</strong> {{ hackathon.team_size_min }} - {{ hackathon.team_size_max }} members</div>
+          <div><strong>Eligibility:</strong> {{ hackathon.eligibility or 'Open to developers globally' }}</div>
+          <div><strong>Format:</strong> {{ hackathon.format|capitalize }}</div>
+        </div>
+      </div>
+
+      <!-- Organizer Info -->
+      <div class="content-block">
+        <h3 style="font-size: 1.15rem; font-weight: 700; color: var(--slate-900); margin-bottom: 0.75rem;">Event Organizer</h3>
+        <div style="font-size: 0.95rem; font-weight: 700; color: var(--slate-900);">{{ hackathon.organizer_name }}</div>
+        <div style="font-size: 0.85rem; color: var(--slate-500); margin-top: 0.2rem;">{{ hackathon.organizer_email }}</div>
+        {% if hackathon.organizer_bio %}
+          <div style="font-size: 0.85rem; color: var(--slate-600); margin-top: 0.5rem;">{{ hackathon.organizer_bio }}</div>
+        {% endif %}
+      </div>
+
+      <!-- Certificate Notice Box -->
+      <div class="content-block" style="background: #eff6ff; border-color: #bfdbfe;">
+        <div style="display: flex; gap: 0.6rem; align-items: flex-start;">
+          <svg width="20" height="20" fill="none" stroke="#2563eb" viewBox="0 0 24 24" style="flex-shrink: 0; margin-top: 2px;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <div style="font-size: 0.85rem; color: #1e40af;">
+            <strong>Certificate Policy:</strong> Personalized participation certificates are issued <em>only</em> after project submission and organizer acceptance.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
