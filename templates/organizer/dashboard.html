@@ -26,31 +26,61 @@
 
 <div class="container" style="padding-bottom: 4rem;">
   <!-- Metric Stat Cards -->
-  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">
-    <div class="content-block" style="padding: 1.5rem; text-align: center;">
+  <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1.25rem; margin-bottom: 2.5rem;">
+    <div class="content-block" style="padding: 1.25rem; text-align: center;">
       <div style="font-size: 2rem; font-weight: 800; color: var(--primary);">{{ stats.total_hackathons }}</div>
-      <div style="font-size: 0.85rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase;">Hosted Events</div>
+      <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase;">Hosted Events</div>
     </div>
 
-    <div class="content-block" style="padding: 1.5rem; text-align: center;">
+    <div class="content-block" style="padding: 1.25rem; text-align: center;">
       <div style="font-size: 2rem; font-weight: 800; color: var(--slate-900);">{{ stats.total_registrations }}</div>
-      <div style="font-size: 0.85rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase;">Registered Participants</div>
+      <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase;">Total Registrations</div>
+      {% if stats.pending_registrations %}
+        <div style="font-size: 0.75rem; color: #d97706; font-weight: 700; margin-top: 0.2rem;">{{ stats.pending_registrations }} Pending Approval</div>
+      {% endif %}
     </div>
 
-    <div class="content-block" style="padding: 1.5rem; text-align: center;">
+    <div class="content-block" style="padding: 1.25rem; text-align: center;">
       <div style="font-size: 2rem; font-weight: 800; color: var(--slate-900);">{{ stats.total_submissions }}</div>
-      <div style="font-size: 0.85rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase;">Project Submissions</div>
+      <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 600; text-transform: uppercase;">Project Submissions</div>
     </div>
 
-    <div class="content-block" style="padding: 1.5rem; text-align: center; border-color: #fde68a; background: #fffbeb;">
+    <div class="content-block" style="padding: 1.25rem; text-align: center; border-color: #fde68a; background: #fffbeb;">
       <div style="font-size: 2rem; font-weight: 800; color: #d97706;">{{ stats.pending_reviews }}</div>
-      <div style="font-size: 0.85rem; color: #92400e; font-weight: 600; text-transform: uppercase;">Pending Reviews</div>
+      <div style="font-size: 0.8rem; color: #92400e; font-weight: 600; text-transform: uppercase;">Under Review</div>
     </div>
 
-    <div class="content-block" style="padding: 1.5rem; text-align: center; border-color: #a7f3d0; background: #ecfdf5;">
+    <div class="content-block" style="padding: 1.25rem; text-align: center; border-color: #a7f3d0; background: #ecfdf5;">
       <div style="font-size: 2rem; font-weight: 800; color: var(--success);">{{ stats.total_certificates }}</div>
-      <div style="font-size: 0.85rem; color: var(--success-text); font-weight: 600; text-transform: uppercase;">Certificates Issued</div>
+      <div style="font-size: 0.8rem; color: var(--success-text); font-weight: 600; text-transform: uppercase;">Certificates Issued</div>
     </div>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <div class="filter-bar" style="margin-bottom: 2rem;">
+    <form action="{{ url_for('organizer_dashboard') }}" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+      <div style="flex: 2; min-width: 200px;">
+        <label for="orgSearch" class="form-label" style="font-size: 0.8rem;">Search Your Hackathons</label>
+        <input type="text" id="orgSearch" name="q" value="{{ search_query or '' }}" placeholder="Search by title, theme..." class="form-control">
+      </div>
+
+      <div style="flex: 1; min-width: 140px;">
+        <label for="orgStatus" class="form-label" style="font-size: 0.8rem;">Filter Status</label>
+        <select id="orgStatus" name="status" class="form-control" onchange="this.form.submit()">
+          <option value="all" {% if not status_filter or status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+          <option value="upcoming" {% if status_filter == 'upcoming' %}selected{% endif %}>Upcoming</option>
+          <option value="ongoing" {% if status_filter == 'ongoing' %}selected{% endif %}>Ongoing</option>
+          <option value="ended" {% if status_filter == 'ended' %}selected{% endif %}>Ended</option>
+        </select>
+      </div>
+
+      <div style="display: flex; gap: 0.5rem;">
+        <button type="submit" class="btn btn-primary" style="padding: 0.65rem 1.25rem;">Filter</button>
+        {% if search_query or (status_filter and status_filter != 'all') %}
+          <a href="{{ url_for('organizer_dashboard') }}" class="btn btn-secondary" style="padding: 0.65rem 1rem;">Reset</a>
+        {% endif %}
+      </div>
+    </form>
   </div>
 
   <!-- Hosted Hackathons List -->
@@ -78,9 +108,9 @@
 
             <div style="font-size: 0.85rem; color: var(--slate-600); display: flex; gap: 1.25rem; flex-wrap: wrap; margin-top: 0.5rem;">
               <div><strong>Dates:</strong> {{ h.start_date }} to {{ h.end_date }}</div>
-              <div><strong>Participants:</strong> {{ h.reg_count }}</div>
-              <div><strong>Submissions:</strong> {{ h.sub_count }} ({{ h.pending_count }} Pending)</div>
-              <div><strong>Accepted:</strong> {{ h.accepted_count }}</div>
+              <div><strong>Participants:</strong> {{ h.reg_count }} {% if h.pending_reg_count %}<span style="color: #d97706; font-weight: 700;">({{ h.pending_reg_count }} Pending)</span>{% endif %}</div>
+              <div><strong>Submissions:</strong> {{ h.sub_count }} {% if h.pending_count %}<span style="color: #d97706; font-weight: 700;">({{ h.pending_count }} Under Review)</span>{% endif %}</div>
+              <div><strong>Certificates:</strong> {{ h.cert_count }}</div>
             </div>
           </div>
 

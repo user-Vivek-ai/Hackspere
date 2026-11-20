@@ -80,6 +80,22 @@ class TestHackSpherePlatform(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertIn(b"Successfully registered", res.data)
 
+        # 3b. Organizer Sarah accepts Jordan's registration
+        db = get_db()
+        reg = db.execute("SELECT id FROM registrations WHERE hackathon_id = ? AND user_email = ?", (ai_hack_id, test_email)).fetchone()
+        db.close()
+        self.assertIsNotNone(reg)
+
+        # Log in as Sarah
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "sarah.organizer@example.com", "password": "Password123!"})
+        res = self.client.post(f"/organizer/hackathons/{ai_hack_id}/registrations/{reg['id']}/review", data={"decision": "accepted"}, follow_redirects=True)
+        self.assertEqual(res.status_code, 200)
+
+        # Log back in as Jordan Lee
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": test_email, "password": test_pass})
+
         # 4. Submit Project
         res = self.client.post(f"/hackathons/{ai_hack_id}/submit", data={
             "project_name": "AgentFlow Automator",
@@ -211,6 +227,112 @@ class TestHackSpherePlatform(unittest.TestCase):
         # Participant tries to access /hackathons/create
         res = self.client.get("/hackathons/create", follow_redirects=True)
         self.assertIn(b"Access denied", res.data)
+
+    def test_08_full_role_separated_lifecycle(self):
+        """Verify: participant registers (pending) -> submission blocked while pending ->
+        organizer accepts registration -> participant submits -> organizer reviews & approves ->
+        certificate issued with participant's name -> participant downloads."""
+        # 1. New Participant signs up
+        p_email = "taylor.dev@example.com"
+        p_pass = "Taylor2026Pass!"
+        p_name = "Taylor Swift"
+
+        self.client.get("/auth/logout")
+        self.client.post("/auth/signup", data={
+            "name": p_name,
+            "email": p_email,
+            "password": p_pass,
+            "confirm_password": p_pass,
+            "role": "participant"
+        }, follow_redirects=True)
+
+        db = get_db()
+        ai_hack = db.execute("SELECT id FROM hackathons WHERE title LIKE '%AI Agents%'").fetchone()
+        db.close()
+        h_id = ai_hack["id"]
+
+        # 2. Register for hackathon -> status is pending
+        reg_res = self.client.post(f"/hackathons/{h_id}/register", follow_redirects=True)
+        self.assertEqual(reg_res.status_code, 200)
+
+        db = get_db()
+        reg_row = db.execute("SELECT id, status FROM registrations WHERE hackathon_id = ? AND user_email = ?", (h_id, p_email)).fetchone()
+        db.close()
+        self.assertEqual(reg_row["status"], "pending")
+
+        # 3. Participant tries to submit while pending -> blocked
+        blocked_res = self.client.post(f"/hackathons/{h_id}/submit", data={
+            "project_name": "Early Bird AI",
+            "description": "An AI system that attempted to submit early before registration approval.",
+            "team_members": "Taylor",
+            "demo_url": "https://early.demo.app",
+            "repo_url": "https://github.com/early/ai"
+        }, follow_redirects=True)
+        self.assertIn(b"Pending organizer acceptance", blocked_res.data)
+
+        # 4. Organizer Sarah logs in and accepts the registration
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "sarah.organizer@example.com", "password": "Password123!"})
+        accept_res = self.client.post(f"/organizer/hackathons/{h_id}/registrations/{reg_row['id']}/review", data={"decision": "accepted"}, follow_redirects=True)
+        self.assertEqual(accept_res.status_code, 200)
+
+        db = get_db()
+        reg_row = db.execute("SELECT status FROM registrations WHERE id = ?", (reg_row["id"],)).fetchone()
+        db.close()
+        self.assertEqual(reg_row["status"], "accepted")
+
+        # 5. Participant logs back in and successfully submits
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": p_email, "password": p_pass})
+        sub_res = self.client.post(f"/hackathons/{h_id}/submit", data={
+            "project_name": "SoundWave Studio",
+            "description": "Real-time acoustic neural synth with multi-track vocal harmonic synthesis.",
+            "team_members": "Taylor Swift",
+            "demo_url": "https://soundwave.demo.app",
+            "repo_url": "https://github.com/taylor/soundwave"
+        }, follow_redirects=True)
+        self.assertEqual(sub_res.status_code, 200)
+        self.assertIn(b"SoundWave Studio", sub_res.data)
+
+        db = get_db()
+        sub_row = db.execute("SELECT id, status FROM submissions WHERE hackathon_id = ? AND project_name = 'SoundWave Studio'", (h_id,)).fetchone()
+        db.close()
+        self.assertIn(sub_row["status"], ("under_review", "pending"))
+
+        # 6. Organizer Sarah approves the project
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "sarah.organizer@example.com", "password": "Password123!"})
+        rev_res = self.client.post(f"/api/submissions/{sub_row['id']}/review", data={
+            "decision": "approved",
+            "feedback": "Spectacular audio synthesis architecture and clean user experience!"
+        }, follow_redirects=True)
+        self.assertEqual(rev_res.status_code, 200)
+
+        # 7. Check that Certificate was generated with Taylor's profile name
+        db = get_db()
+        cert = db.execute("SELECT * FROM certificates WHERE submission_id = ?", (sub_row["id"],)).fetchone()
+        db.close()
+        self.assertIsNotNone(cert)
+        self.assertEqual(cert["participant_name"], "Taylor Swift")
+
+        # 8. Taylor logs in and downloads their certificate
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": p_email, "password": p_pass})
+        down_res = self.client.get(f"/certificates/{cert['certificate_code']}/download")
+        self.assertEqual(down_res.status_code, 200)
+        self.assertEqual(down_res.mimetype, "application/pdf")
+
+        # 9. Verify another participant cannot download Taylor's certificate
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "marcus.vance@example.com", "password": "Password123!"})
+        hack_res = self.client.get(f"/certificates/{cert['certificate_code']}/download", follow_redirects=True)
+        self.assertIn(b"not authorized", hack_res.data)
+
+        # 10. Verify organizer David cannot manage Sarah's hackathon
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "david.host@example.com", "password": "Password123!"})
+        tamper_res = self.client.get(f"/organizer/hackathons/{h_id}/manage", follow_redirects=True)
+        self.assertIn(b"not authorized", tamper_res.data)
 
 if __name__ == "__main__":
     unittest.main()

@@ -105,18 +105,23 @@ document.addEventListener("DOMContentLoaded", function () {
     const submitterEl = document.getElementById("modalSubmitterName");
     const feedbackInput = document.getElementById("reviewFeedback");
     const acceptRadio = document.getElementById("decisionAccept");
+    const underReviewRadio = document.getElementById("decisionUnderReview");
+    const needsChangesRadio = document.getElementById("decisionNeedsChanges");
     const rejectRadio = document.getElementById("decisionReject");
 
     if (modal && form) {
       form.action = `/api/submissions/${submissionId}/review`;
       if (titleEl) titleEl.textContent = projectName;
-      if (submitterEl) submitterEl.textContent = `Submitted by: ${submitterName}`;
+      if (submitterEl) submitterEl.textContent = `Certificate Recipient: ${submitterName}`;
       if (feedbackInput) feedbackInput.value = currentFeedback || "";
 
-      if (currentStatus === "accepted" && acceptRadio) {
+      if ((currentStatus === "accepted" || currentStatus === "approved") && acceptRadio) {
         acceptRadio.checked = true;
-      } else if (currentStatus === "rejected" && rejectRadio) {
-        rejectRadio.checked = true;
+      } else if ((currentStatus === "needs_changes" || currentStatus === "rejected") && (needsChangesRadio || rejectRadio)) {
+        if (needsChangesRadio) needsChangesRadio.checked = true;
+        else if (rejectRadio) rejectRadio.checked = true;
+      } else if (underReviewRadio) {
+        underReviewRadio.checked = true;
       } else if (acceptRadio) {
         acceptRadio.checked = true;
       }
@@ -130,6 +135,38 @@ document.addEventListener("DOMContentLoaded", function () {
     if (modal) {
       modal.classList.remove("active");
     }
+  };
+
+  // Real-time filtering for Submissions in Organizer Manage View
+  window.filterSubmissions = function () {
+    const q = (document.getElementById("subSearchInput")?.value || "").toLowerCase().trim();
+    const st = document.getElementById("subStatusFilter")?.value || "all";
+    document.querySelectorAll(".submission-item").forEach(el => {
+      const text = el.getAttribute("data-text") || "";
+      const status = el.getAttribute("data-status") || "";
+      const matchesQ = !q || text.includes(q);
+      const matchesSt = st === "all" ||
+        (st === "approved" && (status === "approved" || status === "accepted")) ||
+        (st === "under_review" && (status === "under_review" || status === "pending")) ||
+        (st === "needs_changes" && (status === "needs_changes" || status === "rejected"));
+      el.style.display = matchesQ && matchesSt ? "" : "none";
+    });
+  };
+
+  // Real-time filtering for Participants in Organizer Manage View
+  window.filterParticipants = function () {
+    const q = (document.getElementById("partSearchInput")?.value || "").toLowerCase().trim();
+    const st = document.getElementById("partStatusFilter")?.value || "all";
+    document.querySelectorAll(".participant-row").forEach(el => {
+      const text = el.getAttribute("data-text") || "";
+      const status = el.getAttribute("data-status") || "";
+      const matchesQ = !q || text.includes(q);
+      const matchesSt = st === "all" ||
+        (st === "pending" && status === "pending") ||
+        (st === "accepted" && (status === "accepted" || status === "registered")) ||
+        (st === "rejected" && status === "rejected");
+      el.style.display = matchesQ && matchesSt ? "" : "none";
+    });
   };
 
   // Close modal when clicking on backdrop

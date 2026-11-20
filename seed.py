@@ -168,14 +168,14 @@ def seed_database():
     # 3. Create Registrations
     registrations = [
         # AI Hackathon
-        (ai_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "registered", (now - timedelta(days=4)).strftime("%Y-%m-%d %H:%M:%S")),
-        (ai_hack_id, priya_id, "priya.patel@example.com", "Priya Patel", "registered", (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")),
-        (ai_hack_id, marcus_id, "marcus.vance@example.com", "Marcus Vance", "registered", (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")),
+        (ai_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "accepted", (now - timedelta(days=4)).strftime("%Y-%m-%d %H:%M:%S")),
+        (ai_hack_id, priya_id, "priya.patel@example.com", "Priya Patel", "accepted", (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")),
+        (ai_hack_id, marcus_id, "marcus.vance@example.com", "Marcus Vance", "pending", (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")),
         # Web3 Hackathon
-        (web3_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "registered", (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")),
+        (web3_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "pending", (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")),
         # HealthTech Hackathon (ended)
-        (health_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "registered", (now - timedelta(days=25)).strftime("%Y-%m-%d %H:%M:%S")),
-        (health_hack_id, priya_id, "priya.patel@example.com", "Priya Patel", "registered", (now - timedelta(days=24)).strftime("%Y-%m-%d %H:%M:%S"))
+        (health_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "accepted", (now - timedelta(days=25)).strftime("%Y-%m-%d %H:%M:%S")),
+        (health_hack_id, priya_id, "priya.patel@example.com", "Priya Patel", "accepted", (now - timedelta(days=24)).strftime("%Y-%m-%d %H:%M:%S"))
     ]
 
     cursor.executemany("""
