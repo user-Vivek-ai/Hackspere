@@ -49,16 +49,21 @@
         <input type="url" id="repoUrl" name="repo_url" value="{{ submission.repo_url if submission else '' }}" class="form-control" placeholder="https://github.com/username/project">
       </div>
 
-      <!-- Optional File / Screenshot Upload -->
+      <!-- Project Document / Presentation File (PDF) -->
       <div class="form-group">
-        <label for="projectFile" class="form-label">Project Screenshot or Presentation Deck (Optional)</label>
-        <input type="file" id="projectFile" name="project_file" class="form-control" accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.zip">
-        <span style="font-size: 0.75rem; color: var(--slate-500);">Supported formats: PNG, JPG, WEBP, PDF, ZIP (Max 16MB).</span>
+        <label for="projectFile" class="form-label">Project Document or Presentation File (PDF / Presentation)</label>
+        <input type="file" id="projectFile" name="project_file" class="form-control" accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.png,.jpg,.jpeg">
+        <span style="font-size: 0.75rem; color: var(--slate-500);">Upload your project document in <strong>PDF</strong> format, slide presentation, or architecture diagram (Max 16MB).</span>
 
-        {% if submission and submission.image_url %}
+        {% if submission and submission.file_path %}
+          <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
+            <span style="font-size: 0.8rem; color: var(--slate-600);">Attached document:</span>
+            <a href="{{ submission.file_path }}" target="_blank" style="font-size: 0.85rem; font-weight: 600; color: var(--primary);">📄 View Uploaded PDF Document &rarr;</a>
+          </div>
+        {% elif submission and submission.image_url %}
           <div style="margin-top: 0.75rem; display: flex; align-items: center; gap: 0.75rem;">
             <span style="font-size: 0.8rem; color: var(--slate-600);">Current file:</span>
-            <a href="{{ submission.image_url }}" target="_blank" style="font-size: 0.85rem; font-weight: 600;">View Uploaded Screenshot &rarr;</a>
+            <a href="{{ submission.image_url }}" target="_blank" style="font-size: 0.85rem; font-weight: 600;">View Uploaded File &rarr;</a>
           </div>
         {% endif %}
       </div>

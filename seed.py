@@ -32,7 +32,11 @@ def seed_database():
         ("Marcus Vance", "marcus.vance@example.com", pw_hash, "participant", "Data scientist & machine learning engineer.", None),
         # Organizers
         ("Sarah Chen", "sarah.organizer@example.com", pw_hash, "organizer", "VP of Community at TechInnovate Global. Host of 20+ hackathons.", None),
-        ("David Miller", "david.host@example.com", pw_hash, "organizer", "Director of DevRel at CloudPulse & AI Guild Founder.", None)
+        ("David Miller", "david.host@example.com", pw_hash, "organizer", "Director of DevRel at CloudPulse & AI Guild Founder.", None),
+        ("AI", "ai@example.com", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
+        ("AI", "ai.organizer@example.com", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
+        ("AI", "2403A51258@sru.edu.in", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
+        ("Vivek", "vivek@example.com", pw_hash, "organizer", "Hackathon Lead & Community Founder.", None)
     ]
 
     cursor.executemany("""
@@ -50,11 +54,35 @@ def seed_database():
     marcus_id = user_map["marcus.vance@example.com"]
     sarah_id = user_map["sarah.organizer@example.com"]
     david_id = user_map["david.host@example.com"]
+    ai_id = user_map.get("ai@example.com", sarah_id)
 
     # 2. Create Hackathons
     now = datetime.now()
     
     hackathons = [
+        (
+            ai_id,
+            "NextGen AI Hackathon 2026",
+            "Practical AI for a better future — build useful, responsible AI solutions for everyday challenges.",
+            "Join the NextGen AI Hackathon and turn your ideas into AI-powered solutions. Build a project that addresses a real-world problem, learn from other creators, and present your work to a panel of judges. Beginners and experienced developers are welcome.",
+            "AI & Machine Learning",
+            "online",
+            "Online. Event announcements, team coordination, and submission instructions will be shared with registered participants.",
+            (now - timedelta(days=1)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=30)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=20)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=25)).strftime("%Y-%m-%d"),
+            1, 4,
+            "Open to all developers, designers, and students globally. All team members must be registered.",
+            "1. All project code must be original.\n2. Projects must be open-source or freely testable via live URL.\n3. Third-party APIs and open-source models are encouraged with proper attribution.\n4. Submissions require a working demo URL and a project description.",
+            "• Day 1: Opening Ceremony & Keynote\n• Day 2: AI Multi-Agent Architecture Workshop\n• Day 4: Mentorship & Office Hours\n• Day 7: Final Submissions Due\n• Day 9: Winner Showcase & Awards",
+            "• Innovation & Originality (30%)\n• Technical Complexity & Execution (30%)\n• Practical Utility & Impact (20%)\n• Polish & User Experience (20%)",
+            "Participation certificates for eligible submissions",
+            "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200&auto=format&fit=crop&q=80",
+            "upcoming",
+            (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S"),
+            (now - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")
+        ),
         (
             sarah_id,
             "AI Agents & Autonomous Systems Global Hackathon",
@@ -159,14 +187,17 @@ def seed_database():
     """, hackathons)
 
     # Fetch hackathon IDs
-    h_rows = cursor.execute("SELECT id, title FROM hackathons ORDER BY id ASC;").fetchall()
-    ai_hack_id = h_rows[0]["id"]
-    web3_hack_id = h_rows[1]["id"]
-    climate_hack_id = h_rows[2]["id"]
-    health_hack_id = h_rows[3]["id"]
+    h_map = {row["title"]: row["id"] for row in cursor.execute("SELECT id, title FROM hackathons;").fetchall()}
+    nextgen_hack_id = h_map["NextGen AI Hackathon 2026"]
+    ai_hack_id = h_map["AI Agents & Autonomous Systems Global Hackathon"]
+    web3_hack_id = h_map["NextGen Web3 & Decentralized Finance Summit"]
+    climate_hack_id = h_map["ClimateHack Global: Technology for Earth"]
+    health_hack_id = h_map["Global HealthTech Innovation Challenge 2026"]
 
     # 3. Create Registrations
     registrations = [
+        # NextGen AI Hackathon 2026 (Hosted by AI) -> 1 Pending registration ready to review
+        (nextgen_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "pending", (now - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")),
         # AI Hackathon
         (ai_hack_id, alex_id, "alex.dev@example.com", "Alex Rivera", "accepted", (now - timedelta(days=4)).strftime("%Y-%m-%d %H:%M:%S")),
         (ai_hack_id, priya_id, "priya.patel@example.com", "Priya Patel", "accepted", (now - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")),

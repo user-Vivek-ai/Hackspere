@@ -17,14 +17,14 @@ def ensure_db_file():
     """Ensure database file is copied and writable in Vercel serverless /tmp."""
     if IS_VERCEL:
         src_db = os.path.join(os.path.dirname(__file__), "hacksphere.db")
+        # ONLY copy if DB_PATH does not exist at all or is 0 bytes
+        # NEVER overwrite an existing database in /tmp!
         needs_copy = False
         if not os.path.exists(DB_PATH):
             needs_copy = True
         elif os.path.exists(src_db):
             try:
                 if os.path.getsize(DB_PATH) == 0:
-                    needs_copy = True
-                elif os.path.getmtime(src_db) > os.path.getmtime(DB_PATH):
                     needs_copy = True
             except Exception:
                 pass
