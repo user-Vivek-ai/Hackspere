@@ -7,6 +7,8 @@ from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
 from reportlab.graphics.shapes import Drawing, Rect, Circle, String, Group, Polygon
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics import renderPDF
 
 IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
 
@@ -92,6 +94,21 @@ def draw_official_seal(c, x, y):
     p2.close()
     c.drawPath(p2, fill=1, stroke=0)
 
+def draw_qr_code(c, x, y, size, data):
+    """Draw a vector QR code with white backing and border."""
+    c.setFillColor(colors.HexColor("#ffffff"))
+    c.setStrokeColor(colors.HexColor("#cbd5e1"))
+    c.setLineWidth(1)
+    c.roundRect(x - 4, y - 4, size + 8, size + 8, 4, fill=1, stroke=1)
+
+    qr = QrCodeWidget(data)
+    bounds = qr.getBounds()
+    w_qr = bounds[2] - bounds[0]
+    h_qr = bounds[3] - bounds[1]
+    d = Drawing(size, size, transform=[size / w_qr, 0, 0, size / h_qr, 0, 0])
+    d.add(qr)
+    renderPDF.draw(d, c, x, y)
+
 def generate_certificate_pdf(
     certificate_code: str,
     participant_name: str,
@@ -99,7 +116,8 @@ def generate_certificate_pdf(
     event_dates: str,
     organizer_name: str,
     project_name: str = None,
-    output_path: str = None
+    output_path: str = None,
+    verify_url: str = None
 ) -> bytes:
     """Generate a high-resolution vector PDF certificate."""
     buffer = io.BytesIO()
@@ -198,7 +216,7 @@ def generate_certificate_pdf(
     c.drawString(left_x, 65, "Authorized Event Lead Signature")
 
     # 11. Right Column Details (Certificate ID & Registry)
-    right_x = w - 270
+    right_x = w - 340
     issue_date = datetime.now().strftime("%B %d, %Y")
     
     c.setFillColor(colors.HexColor("#64748b"))
@@ -218,17 +236,31 @@ def generate_certificate_pdf(
     # Validation Stamp line
     c.setStrokeColor(colors.HexColor("#94a3b8"))
     c.setLineWidth(1)
-    c.line(right_x, 78, right_x + 180, 78)
+    c.line(right_x, 78, right_x + 160, 78)
     c.setFillColor(colors.HexColor("#64748b"))
     c.setFont("Helvetica-Oblique", 8)
     c.drawString(right_x, 65, "HackSphere Academic & Dev Registry")
 
-    # 12. Bottom Security & Verification Footer
+    # 12. QR Code (Scan to Verify Name & Credentials)
+    qr_x = w - 145
+    qr_y = 65
+    qr_size = 68
+    qr_data = verify_url or f"https://hackspere.vercel.app/verify-certificate/{certificate_code}"
+    draw_qr_code(c, qr_x, qr_y, qr_size, qr_data)
+
+    c.setFillColor(colors.HexColor("#1e3a8a"))
+    c.setFont("Helvetica-Bold", 7.5)
+    c.drawCentredString(qr_x + qr_size / 2, qr_y - 14, "SCAN TO VERIFY")
+    c.setFillColor(colors.HexColor("#64748b"))
+    c.setFont("Helvetica", 6.5)
+    c.drawCentredString(qr_x + qr_size / 2, qr_y - 23, "Recipient & Project")
+
+    # 13. Bottom Security & Verification Footer
     c.setFillColor(colors.HexColor("#94a3b8"))
     c.setFont("Helvetica", 8)
     c.drawCentredString(
-        w / 2, 42,
-        f"Verify this credential at https://hacksphere.dev/verify-certificate/{certificate_code} • Issued for Accepted Project Submission"
+        w / 2, 40,
+        f"Scan QR code or visit https://hackspere.vercel.app/verify-certificate/{certificate_code} to verify authenticity • Issued for Accepted Project"
     )
 
     c.showPage()

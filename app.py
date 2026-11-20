@@ -634,6 +634,7 @@ def download_certificate(certificate_code):
         download_name=f"Certificate_{cert['certificate_code']}.pdf"
     )
 
+@app.route("/verify/<certificate_code>")
 @app.route("/verify-certificate/<certificate_code>")
 def verify_certificate(certificate_code):
     db = get_db()
@@ -698,8 +699,23 @@ def hackathon_create():
         end_date = request.form.get("end_date", "").strip()
         reg_deadline = request.form.get("registration_deadline", "").strip()
         sub_deadline = request.form.get("submission_deadline", "").strip()
-        team_size_min = int(request.form.get("team_size_min", 1))
-        team_size_max = int(request.form.get("team_size_max", 4))
+        
+        # Safe integer parsing
+        try:
+            team_size_min = int(request.form.get("team_size_min") or 1)
+        except (ValueError, TypeError):
+            team_size_min = 1
+
+        try:
+            team_size_max = int(request.form.get("team_size_max") or 4)
+        except (ValueError, TypeError):
+            team_size_max = 4
+
+        if team_size_min < 1:
+            team_size_min = 1
+        if team_size_max < team_size_min:
+            team_size_max = team_size_min
+
         eligibility = request.form.get("eligibility", "").strip()
         rules = request.form.get("rules", "").strip()
         schedule = request.form.get("schedule", "").strip()
@@ -714,7 +730,7 @@ def hackathon_create():
             return render_template("hackathons/create.html", form=request.form)
 
         if not description or len(description) < 30:
-            flash("Please provide a thorough description of the hackathon.", "danger")
+            flash("Please provide a thorough description of the hackathon (at least 30 characters).", "danger")
             return render_template("hackathons/create.html", form=request.form)
 
         if not start_date or not end_date:
@@ -729,30 +745,35 @@ def hackathon_create():
         if not banner_url:
             banner_url = "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80"
 
-        organizer_id = session["user_id"]
+        organizer_id = session.get("user_id")
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        db = get_db()
-        cursor = db.cursor()
-        cursor.execute("""
-            INSERT INTO hackathons (
-                organizer_id, title, tagline, description, theme, format, location,
-                start_date, end_date, registration_deadline, submission_deadline,
+        try:
+            db = get_db()
+            cursor = db.cursor()
+            cursor.execute("""
+                INSERT INTO hackathons (
+                    organizer_id, title, tagline, description, theme, format, location,
+                    start_date, end_date, registration_deadline, submission_deadline,
+                    team_size_min, team_size_max, eligibility, rules, schedule,
+                    judging_criteria, prizes, banner_url, status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                organizer_id, title, tagline, description, theme, format_val, location,
+                start_date, end_date, reg_deadline, sub_deadline,
                 team_size_min, team_size_max, eligibility, rules, schedule,
-                judging_criteria, prizes, banner_url, status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            organizer_id, title, tagline, description, theme, format_val, location,
-            start_date, end_date, reg_deadline, sub_deadline,
-            team_size_min, team_size_max, eligibility, rules, schedule,
-            judging_criteria, prizes, banner_url, status_val, now_str, now_str
-        ))
-        db.commit()
-        new_id = cursor.lastrowid
-        db.close()
+                judging_criteria, prizes, banner_url, status_val, now_str, now_str
+            ))
+            db.commit()
+            new_id = cursor.lastrowid
+            db.close()
 
-        flash(f"Hackathon '{title}' created successfully!", "success")
-        return redirect(url_for("organizer_manage_hackathon", hackathon_id=new_id))
+            flash(f"Hackathon '{title}' created successfully!", "success")
+            return redirect(url_for("organizer_manage_hackathon", hackathon_id=new_id))
+        except Exception as e:
+            print("Error creating hackathon:", e)
+            flash(f"Could not save hackathon: {str(e)}", "danger")
+            return render_template("hackathons/create.html", form=request.form)
 
     return render_template("hackathons/create.html")
 
@@ -783,8 +804,22 @@ def hackathon_edit(hackathon_id):
         end_date = request.form.get("end_date", "").strip()
         reg_deadline = request.form.get("registration_deadline", "").strip()
         sub_deadline = request.form.get("submission_deadline", "").strip()
-        team_size_min = int(request.form.get("team_size_min", 1))
-        team_size_max = int(request.form.get("team_size_max", 4))
+        
+        try:
+            team_size_min = int(request.form.get("team_size_min") or 1)
+        except (ValueError, TypeError):
+            team_size_min = 1
+
+        try:
+            team_size_max = int(request.form.get("team_size_max") or 4)
+        except (ValueError, TypeError):
+            team_size_max = 4
+
+        if team_size_min < 1:
+            team_size_min = 1
+        if team_size_max < team_size_min:
+            team_size_max = team_size_min
+
         eligibility = request.form.get("eligibility", "").strip()
         rules = request.form.get("rules", "").strip()
         schedule = request.form.get("schedule", "").strip()
@@ -795,24 +830,29 @@ def hackathon_edit(hackathon_id):
 
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        db.execute("""
-            UPDATE hackathons
-            SET title = ?, tagline = ?, description = ?, theme = ?, format = ?, location = ?,
-                start_date = ?, end_date = ?, registration_deadline = ?, submission_deadline = ?,
-                team_size_min = ?, team_size_max = ?, eligibility = ?, rules = ?, schedule = ?,
-                judging_criteria = ?, prizes = ?, banner_url = ?, status = ?, updated_at = ?
-            WHERE id = ?
-        """, (
-            title, tagline, description, theme, format_val, location,
-            start_date, end_date, reg_deadline, sub_deadline,
-            team_size_min, team_size_max, eligibility, rules, schedule,
-            judging_criteria, prizes, banner_url, status_val, now_str, hackathon_id
-        ))
-        db.commit()
-        db.close()
+        try:
+            db.execute("""
+                UPDATE hackathons
+                SET title = ?, tagline = ?, description = ?, theme = ?, format = ?, location = ?,
+                    start_date = ?, end_date = ?, registration_deadline = ?, submission_deadline = ?,
+                    team_size_min = ?, team_size_max = ?, eligibility = ?, rules = ?, schedule = ?,
+                    judging_criteria = ?, prizes = ?, banner_url = ?, status = ?, updated_at = ?
+                WHERE id = ?
+            """, (
+                title, tagline, description, theme, format_val, location,
+                start_date, end_date, reg_deadline, sub_deadline,
+                team_size_min, team_size_max, eligibility, rules, schedule,
+                judging_criteria, prizes, banner_url, status_val, now_str, hackathon_id
+            ))
+            db.commit()
+            db.close()
 
-        flash("Hackathon details updated successfully!", "success")
-        return redirect(url_for("organizer_manage_hackathon", hackathon_id=hackathon_id))
+            flash("Hackathon details updated successfully!", "success")
+            return redirect(url_for("organizer_manage_hackathon", hackathon_id=hackathon_id))
+        except Exception as e:
+            print("Error updating hackathon:", e)
+            flash(f"Could not update hackathon: {str(e)}", "danger")
+            return render_template("hackathons/edit.html", hackathon=hackathon)
 
     db.close()
     return render_template("hackathons/edit.html", hackathon=hackathon)
@@ -974,6 +1014,12 @@ def page_not_found(e):
 @app.errorhandler(403)
 def forbidden_access(e):
     flash("You do not have permission to access that resource.", "danger")
+    return redirect(url_for("index"))
+
+@app.errorhandler(500)
+def server_error(e):
+    print("500 Server Error caught:", e)
+    flash("A server issue occurred while processing your request. Please try again.", "danger")
     return redirect(url_for("index"))
 
 if __name__ == "__main__":

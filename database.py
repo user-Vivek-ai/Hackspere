@@ -9,18 +9,34 @@ IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
 if IS_VERCEL:
     TEMP_DIR = tempfile.gettempdir()
     DB_PATH = os.path.join(TEMP_DIR, "hacksphere.db")
-    # Copy pre-seeded DB from build artifact to temp if not already in temp
     src_db = os.path.join(os.path.dirname(__file__), "hacksphere.db")
+    
+    # Ensure fresh writable copy in /tmp for Vercel serverless
     if not os.path.exists(DB_PATH) and os.path.exists(src_db):
         try:
-            shutil.copy2(src_db, DB_PATH)
+            shutil.copyfile(src_db, DB_PATH)
+            os.chmod(DB_PATH, 0o666)
+        except Exception as e:
+            print("DB copy error:", e)
+    elif os.path.exists(DB_PATH):
+        try:
+            os.chmod(DB_PATH, 0o666)
         except Exception:
             pass
 else:
     DB_PATH = os.path.join(os.path.dirname(__file__), "hacksphere.db")
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    # If on Vercel and DB file is somehow missing from /tmp, copy it over
+    if IS_VERCEL and not os.path.exists(DB_PATH):
+        src_db = os.path.join(os.path.dirname(__file__), "hacksphere.db")
+        if os.path.exists(src_db):
+            try:
+                shutil.copyfile(src_db, DB_PATH)
+                os.chmod(DB_PATH, 0o666)
+            except Exception:
+                pass
+    conn = sqlite3.connect(DB_PATH, timeout=20.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
