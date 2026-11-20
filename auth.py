@@ -96,6 +96,11 @@ def role_required(required_role):
                 if request.is_json or request.path.startswith("/api/"):
                     return jsonify({"error": f"Forbidden: This action requires the '{required_role}' role."}), 403
                 flash(f"Access denied. This area is reserved for {required_role}s.", "danger")
+                # Redirect to appropriate dashboard instead of index
+                if user_role == "organizer":
+                    return redirect(url_for("organizer_dashboard"))
+                elif user_role == "participant":
+                    return redirect(url_for("participant_dashboard"))
                 return redirect(url_for("index"))
             return f(*args, **kwargs)
         return decorated_function

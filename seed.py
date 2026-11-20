@@ -64,9 +64,9 @@ def seed_database():
             "online",
             "Virtual / Worldwide (Discord & Zoom)",
             (now - timedelta(days=5)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=7)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=2)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=6)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=60)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=45)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=55)).strftime("%Y-%m-%d"),
             1, 4,
             "Open to all developers, designers, and students globally. All team members must be registered.",
             "1. All project code must be written during the hackathon.\n2. Projects must be open-source or freely testable via live URL.\n3. Third-party APIs and open-source models are encouraged with proper attribution.\n4. Submissions require a working demo URL and a project description.",
@@ -87,9 +87,9 @@ def seed_database():
             "hybrid",
             "San Francisco, CA & Online Stream",
             (now + timedelta(days=10)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=14)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=9)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=13)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=90)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=75)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=85)).strftime("%Y-%m-%d"),
             1, 4,
             "Developers 18+ worldwide. In-person participants must check-in at SF venue.",
             "1. Smart contracts must compile and be deployed to a testnet.\n2. No pre-built code; public git commit history must reflect hackathon dates.\n3. Teams must adhere to ethical security guidelines.",
@@ -110,9 +110,9 @@ def seed_database():
             "online",
             "Virtual / Global",
             (now + timedelta(days=20)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=24)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=18)).strftime("%Y-%m-%d"),
-            (now + timedelta(days=23)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=120)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=100)).strftime("%Y-%m-%d"),
+            (now + timedelta(days=115)).strftime("%Y-%m-%d"),
             2, 5,
             "Open to anyone passionate about sustainable development goals.",
             "Projects must clearly articulate climate impact metrics. Open-source repositories strongly preferred.",
@@ -278,7 +278,8 @@ def seed_database():
             event_dates="Oct 26 - Oct 30, 2026",
             organizer_name="David Miller",
             project_name="PulseCare Telehealth Diagnostics",
-            output_path=pdf_path
+            output_path=pdf_path,
+            verify_url=f"https://hackathon-hub-kappa.vercel.app/verify-certificate/{cert_code}"
         )
 
         cursor.execute("""

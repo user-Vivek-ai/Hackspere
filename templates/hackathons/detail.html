@@ -68,11 +68,14 @@
                 You are the host of this hackathon
               </div>
               <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=hackathon.id) }}" class="btn btn-primary" style="width: 100%;">
-                Manage & Review Submissions
+                Manage &amp; Review Submissions
               </a>
               <a href="{{ url_for('hackathon_edit', hackathon_id=hackathon.id) }}" class="btn btn-secondary" style="width: 100%;">
                 Edit Hackathon Details
               </a>
+              <div style="font-size: 0.75rem; color: var(--slate-500); text-align: center; padding-top: 0.25rem;">
+                {{ submission_count }} project{{ 's' if submission_count != 1 else '' }} submitted &bull; {{ participant_count }} registered
+              </div>
             </div>
           {% else %}
             <div style="text-align: center; color: var(--slate-600); font-size: 0.9rem;">

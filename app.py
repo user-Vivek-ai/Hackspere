@@ -583,15 +583,18 @@ def participant_dashboard():
         ORDER BY c.issued_at DESC
     """, (user_id,)).fetchall()
 
-    # Available Hackathons not yet registered for
+    # Available Hackathons not yet registered for (open registration, not ended)
+    today_str = datetime.now().strftime("%Y-%m-%d")
     available_hackathons = db.execute("""
         SELECT h.*, u.name as organizer_name,
                (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id) as participant_count
         FROM hackathons h
         JOIN users u ON h.organizer_id = u.id
         WHERE h.id NOT IN (SELECT hackathon_id FROM registrations WHERE user_id = ?)
+          AND h.status != 'ended'
+          AND (h.registration_deadline IS NULL OR h.registration_deadline >= ?)
         ORDER BY h.start_date ASC
-    """, (user_id,)).fetchall()
+    """, (user_id, today_str)).fetchall()
 
     db.close()
     return render_template(
@@ -648,6 +651,9 @@ def download_certificate(certificate_code):
         sub = db.execute("SELECT project_name FROM submissions WHERE id = ?", (cert["submission_id"],)).fetchone()
         project_name = sub["project_name"] if sub else None
 
+        base_url = request.host_url.rstrip("/")
+        verify_url = f"{base_url}/verify-certificate/{cert['certificate_code']}"
+
         generate_certificate_pdf(
             certificate_code=cert["certificate_code"],
             participant_name=cert["participant_name"],
@@ -655,7 +661,8 @@ def download_certificate(certificate_code):
             event_dates=cert["event_dates"],
             organizer_name=cert["organizer_name"],
             project_name=project_name,
-            output_path=pdf_path
+            output_path=pdf_path,
+            verify_url=verify_url
         )
         # Update path
         db.execute("UPDATE certificates SET pdf_path = ? WHERE id = ?", (pdf_path, cert["id"]))
@@ -1012,6 +1019,10 @@ def review_submission(submission_id):
             pdf_path = os.path.join(CERT_DIR, pdf_filename)
             event_dates = f"{sub['start_date']} to {sub['end_date']}"
 
+            # Build verify URL — works on both Vercel and local
+            base_url = request.host_url.rstrip("/")
+            verify_url = f"{base_url}/verify-certificate/{cert_code}"
+
             # Generate real PDF certificate
             generate_certificate_pdf(
                 certificate_code=cert_code,
@@ -1020,7 +1031,8 @@ def review_submission(submission_id):
                 event_dates=event_dates,
                 organizer_name=sub["organizer_name"],
                 project_name=sub["project_name"],
-                output_path=pdf_path
+                output_path=pdf_path,
+                verify_url=verify_url
             )
 
             db.execute("""
