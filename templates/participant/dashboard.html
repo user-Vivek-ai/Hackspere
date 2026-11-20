@@ -46,6 +46,13 @@
         </svg>
         Earned Certificates ({{ certificates|length }})
       </button>
+
+      <button class="tab-btn" data-tab="tab-explore">
+        <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+        </svg>
+        Discover &amp; Register ({{ available_hackathons|length }})
+      </button>
     </div>
 
     <!-- TAB 1: REGISTRATIONS -->
@@ -101,16 +108,66 @@
           </table>
         </div>
       {% else %}
-        <div class="empty-state">
+        <div class="empty-state" style="margin-bottom: 2.5rem;">
           <div class="empty-state-icon">
             <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
             </svg>
           </div>
           <div class="empty-state-title">You haven't registered for any hackathons yet</div>
-          <p class="empty-state-text">Explore active challenges, register with one click, and build your portfolio.</p>
-          <a href="{{ url_for('hackathons_list') }}" class="btn btn-primary">Browse Hackathons</a>
+          <p class="empty-state-text">Explore active challenges below, register with one click, and build your portfolio.</p>
+          <a href="{{ url_for('hackathons_list') }}" class="btn btn-secondary">Browse All Events</a>
         </div>
+
+        {% if available_hackathons %}
+          <div style="margin-top: 1rem;">
+            <h3 style="font-size: 1.25rem; font-weight: 800; color: var(--slate-900); margin-bottom: 1rem;">
+              Recommended Hackathons — Register in 1-Click
+            </h3>
+            <div class="cards-grid">
+              {% for h in available_hackathons %}
+                <div class="hcard">
+                  <div class="hcard-img">
+                    <img src="{{ h.banner_url or 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80' }}" alt="{{ h.title }}" loading="lazy">
+                    <div class="hcard-badges">
+                      <span class="badge badge-{{ h.format }}">{{ h.format }}</span>
+                      <span class="badge badge-{{ h.status }}">{{ h.status }}</span>
+                    </div>
+                  </div>
+                  <div class="hcard-body">
+                    <div class="hcard-topic">{{ h.theme }}</div>
+                    <h3 class="hcard-title">
+                      <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}">{{ h.title }}</a>
+                    </h3>
+                    <p class="hcard-desc">{{ h.tagline or h.description }}</p>
+                    <div class="hcard-meta">
+                      <div class="hcard-meta-row">
+                        <div class="meta-item">
+                          <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                          </svg>
+                          <span>{{ h.start_date }} - {{ h.end_date }}</span>
+                        </div>
+                        <div class="meta-item">
+                          <span>{{ h.participant_count }} Registered</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="hcard-foot">
+                    <form action="{{ url_for('register_hackathon', hackathon_id=h.id) }}" method="POST" style="margin: 0;">
+                      <input type="hidden" name="next" value="dashboard">
+                      <button type="submit" class="btn btn-sm btn-primary">
+                        Register Now
+                      </button>
+                    </form>
+                    <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}" class="btn btn-sm btn-secondary">Details</a>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
       {% endif %}
     </div>
 
@@ -280,6 +337,86 @@
           </div>
           <div class="empty-state-title">No certificates earned yet</div>
           <p class="empty-state-text">Submit your hackathon project before the deadline. Once the organizer reviews and marks your project as Accepted, your certificate will appear here.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- TAB 4: DISCOVER & REGISTER -->
+    <div class="tab-content" id="tab-explore">
+      <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 1rem 1.25rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div style="font-weight: 700; color: #1e40af; font-size: 1rem;">Available Hackathons for You</div>
+          <div style="font-size: 0.85rem; color: #1e3a8a; margin-top: 0.2rem;">Register with one click to participate, collaborate with teams, and submit your breakthrough solution.</div>
+        </div>
+        <a href="{{ url_for('hackathons_list') }}" class="btn btn-sm btn-outline">View Filter &amp; Search View</a>
+      </div>
+
+      {% if available_hackathons %}
+        <div class="cards-grid">
+          {% for h in available_hackathons %}
+            <div class="hcard">
+              <div class="hcard-img">
+                <img src="{{ h.banner_url or 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=800&auto=format&fit=crop&q=80' }}" alt="{{ h.title }}" loading="lazy">
+                <div class="hcard-badges">
+                  <span class="badge badge-{{ h.format }}">{{ h.format }}</span>
+                  <span class="badge badge-{{ h.status }}">{{ h.status }}</span>
+                </div>
+              </div>
+
+              <div class="hcard-body">
+                <div class="hcard-topic">{{ h.theme }}</div>
+                <h3 class="hcard-title">
+                  <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}">{{ h.title }}</a>
+                </h3>
+                <p class="hcard-desc">{{ h.tagline or h.description }}</p>
+
+                <div class="hcard-meta">
+                  <div class="hcard-meta-row">
+                    <div class="meta-item">
+                      <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                      </svg>
+                      <span>{{ h.start_date }} - {{ h.end_date }}</span>
+                    </div>
+                    <div class="meta-item">
+                      <span>{{ h.participant_count }} Registered</span>
+                    </div>
+                  </div>
+
+                  {% if h.prizes %}
+                    <div class="meta-row" style="color: var(--accent); font-weight: 600; font-size: 0.85rem;">
+                      <span>{{ h.prizes.split('(')[0] }}</span>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="hcard-foot">
+                <form action="{{ url_for('register_hackathon', hackathon_id=h.id) }}" method="POST" style="margin: 0;">
+                  <input type="hidden" name="next" value="dashboard">
+                  <button type="submit" class="btn btn-sm btn-primary">
+                    <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+                    </svg>
+                    Register Now
+                  </button>
+                </form>
+                <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}" class="btn btn-sm btn-secondary">
+                  Details
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+          </div>
+          <div class="empty-state-title">You're registered for all upcoming events!</div>
+          <p class="empty-state-text">Check your Registered Hackathons tab to prepare your project submissions.</p>
         </div>
       {% endif %}
     </div>

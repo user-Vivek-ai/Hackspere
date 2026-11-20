@@ -306,6 +306,7 @@ def hackathons_list():
     )
 
 @app.route("/hackathons/<int:hackathon_id>")
+@app.route("/hackathon/<int:hackathon_id>")
 def hackathon_detail(hackathon_id):
     db = get_db()
     hackathon = db.execute("""
@@ -317,7 +318,8 @@ def hackathon_detail(hackathon_id):
 
     if not hackathon:
         db.close()
-        abort(404)
+        flash("The requested hackathon could not be found. It may have concluded or been removed.", "warning")
+        return redirect(url_for("hackathons_list"))
 
     # Participant count
     participant_count = db.execute(
@@ -370,20 +372,25 @@ def hackathon_detail(hackathon_id):
 # PARTICIPANT ACTIONS
 # ==========================================
 
-@app.route("/hackathons/<int:hackathon_id>/register", methods=["POST"])
+@app.route("/hackathons/<int:hackathon_id>/register", methods=["GET", "POST"])
+@app.route("/hackathon/<int:hackathon_id>/register", methods=["GET", "POST"])
 @login_required
-@role_required("participant")
 def register_hackathon(hackathon_id):
-    user_id = session["user_id"]
+    if session.get("user_role") == "organizer":
+        flash("You are currently logged in with an Organizer account. To register for hackathons as a participant, please switch to a Participant account.", "info")
+        return redirect(url_for("hackathon_detail", hackathon_id=hackathon_id))
+
+    user_id = session.get("user_id")
     db = get_db()
     hackathon = db.execute("SELECT * FROM hackathons WHERE id = ?", (hackathon_id,)).fetchone()
     if not hackathon:
         db.close()
-        abort(404)
+        flash("The requested hackathon could not be found.", "warning")
+        return redirect(url_for("hackathons_list"))
 
     # Check registration deadline
     today = datetime.now().strftime("%Y-%m-%d")
-    if hackathon["registration_deadline"] < today:
+    if hackathon["registration_deadline"] and hackathon["registration_deadline"] < today:
         db.close()
         flash("Registration for this hackathon has closed.", "danger")
         return redirect(url_for("hackathon_detail", hackathon_id=hackathon_id))
@@ -397,31 +404,45 @@ def register_hackathon(hackathon_id):
     if existing:
         db.close()
         flash("You are already registered for this hackathon!", "info")
+        next_page = request.args.get("next")
+        if next_page == "dashboard":
+            return redirect(url_for("participant_dashboard"))
         return redirect(url_for("hackathon_detail", hackathon_id=hackathon_id))
 
     user = db.execute("SELECT name, email FROM users WHERE id = ?", (user_id,)).fetchone()
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    db.execute("""
-        INSERT INTO registrations (hackathon_id, user_id, user_email, user_name, status, registered_at)
-        VALUES (?, ?, ?, ?, 'registered', ?)
-    """, (hackathon_id, user_id, user["email"], user["name"], now_str))
-    db.commit()
+    try:
+        db.execute("""
+            INSERT INTO registrations (hackathon_id, user_id, user_email, user_name, status, registered_at)
+            VALUES (?, ?, ?, ?, 'registered', ?)
+        """, (hackathon_id, user_id, user["email"], user["name"], now_str))
+        db.commit()
+    except Exception as e:
+        print("Registration insert error:", e)
     db.close()
 
     flash(f"Successfully registered for {hackathon['title']}! We can't wait to see what you build.", "success")
+    next_page = request.args.get("next")
+    if next_page == "dashboard":
+        return redirect(url_for("participant_dashboard"))
     return redirect(url_for("hackathon_detail", hackathon_id=hackathon_id))
 
 @app.route("/hackathons/<int:hackathon_id>/submit", methods=["GET", "POST"])
+@app.route("/hackathon/<int:hackathon_id>/submit", methods=["GET", "POST"])
 @login_required
-@role_required("participant")
 def submit_project(hackathon_id):
-    user_id = session["user_id"]
+    if session.get("user_role") == "organizer":
+        flash("Organizers cannot submit projects. Please log in with a Participant account.", "warning")
+        return redirect(url_for("organizer_dashboard"))
+
+    user_id = session.get("user_id")
     db = get_db()
     hackathon = db.execute("SELECT * FROM hackathons WHERE id = ?", (hackathon_id,)).fetchone()
     if not hackathon:
         db.close()
-        abort(404)
+        flash("Hackathon not found.", "warning")
+        return redirect(url_for("participant_dashboard"))
 
     # Check if participant is registered
     registration = db.execute(
@@ -519,6 +540,8 @@ def submit_project(hackathon_id):
     return render_template("participant/submit.html", hackathon=hackathon, submission=existing_submission)
 
 @app.route("/dashboard")
+@app.route("/participant/dashboard")
+@app.route("/participant")
 @login_required
 def participant_dashboard():
     if session.get("user_role") == "organizer":
@@ -560,12 +583,23 @@ def participant_dashboard():
         ORDER BY c.issued_at DESC
     """, (user_id,)).fetchall()
 
+    # Available Hackathons not yet registered for
+    available_hackathons = db.execute("""
+        SELECT h.*, u.name as organizer_name,
+               (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id) as participant_count
+        FROM hackathons h
+        JOIN users u ON h.organizer_id = u.id
+        WHERE h.id NOT IN (SELECT hackathon_id FROM registrations WHERE user_id = ?)
+        ORDER BY h.start_date ASC
+    """, (user_id,)).fetchall()
+
     db.close()
     return render_template(
         "participant/dashboard.html",
         registrations=registrations,
         submissions=submissions,
-        certificates=certificates
+        certificates=certificates,
+        available_hackathons=available_hackathons
     )
 
 # ==========================================
@@ -589,7 +623,8 @@ def download_certificate(certificate_code):
 
     if not cert:
         db.close()
-        abort(404)
+        flash("Certificate record not found. It may still be pending review by the organizer.", "warning")
+        return redirect(url_for("participant_dashboard"))
 
     # STRICT ENFORCEMENT: Certificate is only available if project was accepted!
     if cert["submission_status"] != "accepted":
@@ -654,6 +689,9 @@ def verify_certificate(certificate_code):
 # ==========================================
 
 @app.route("/organizer/dashboard")
+@app.route("/organizer")
+@app.route("/admin")
+@app.route("/admin/dashboard")
 @login_required
 @role_required("organizer")
 def organizer_dashboard():
@@ -685,6 +723,7 @@ def organizer_dashboard():
     return render_template("organizer/dashboard.html", hackathons=hackathons, stats=stats)
 
 @app.route("/hackathons/create", methods=["GET", "POST"])
+@app.route("/hackathon/create", methods=["GET", "POST"])
 @login_required
 @role_required("organizer")
 def hackathon_create():
@@ -778,6 +817,7 @@ def hackathon_create():
     return render_template("hackathons/create.html")
 
 @app.route("/hackathons/<int:hackathon_id>/edit", methods=["GET", "POST"])
+@app.route("/hackathon/<int:hackathon_id>/edit", methods=["GET", "POST"])
 @login_required
 @role_required("organizer")
 def hackathon_edit(hackathon_id):
@@ -786,7 +826,8 @@ def hackathon_edit(hackathon_id):
     hackathon = db.execute("SELECT * FROM hackathons WHERE id = ?", (hackathon_id,)).fetchone()
     if not hackathon:
         db.close()
-        abort(404)
+        flash("Hackathon not found.", "warning")
+        return redirect(url_for("organizer_dashboard"))
 
     if hackathon["organizer_id"] != organizer_id:
         db.close()
@@ -858,6 +899,8 @@ def hackathon_edit(hackathon_id):
     return render_template("hackathons/edit.html", hackathon=hackathon)
 
 @app.route("/organizer/hackathons/<int:hackathon_id>/manage")
+@app.route("/hackathons/<int:hackathon_id>/manage")
+@app.route("/hackathon/<int:hackathon_id>/manage")
 @login_required
 @role_required("organizer")
 def organizer_manage_hackathon(hackathon_id):
@@ -866,7 +909,8 @@ def organizer_manage_hackathon(hackathon_id):
     hackathon = db.execute("SELECT * FROM hackathons WHERE id = ?", (hackathon_id,)).fetchone()
     if not hackathon:
         db.close()
-        abort(404)
+        flash("Hackathon not found.", "warning")
+        return redirect(url_for("organizer_dashboard"))
 
     if hackathon["organizer_id"] != organizer_id:
         db.close()
@@ -938,7 +982,8 @@ def review_submission(submission_id):
 
     if not sub:
         db.close()
-        abort(404)
+        flash("Submission not found.", "warning")
+        return redirect(url_for("organizer_dashboard"))
 
     if sub["organizer_id"] != organizer_id:
         db.close()
