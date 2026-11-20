@@ -2,6 +2,7 @@ import sqlite3
 import os
 import shutil
 import tempfile
+import time
 from datetime import datetime
 
 IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
@@ -9,40 +10,198 @@ IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
 if IS_VERCEL:
     TEMP_DIR = tempfile.gettempdir()
     DB_PATH = os.path.join(TEMP_DIR, "hacksphere.db")
-    src_db = os.path.join(os.path.dirname(__file__), "hacksphere.db")
-    
-    # Ensure fresh writable copy in /tmp for Vercel serverless
-    if not os.path.exists(DB_PATH) and os.path.exists(src_db):
-        try:
-            shutil.copyfile(src_db, DB_PATH)
-            os.chmod(DB_PATH, 0o666)
-        except Exception as e:
-            print("DB copy error:", e)
-    elif os.path.exists(DB_PATH):
-        try:
-            os.chmod(DB_PATH, 0o666)
-        except Exception:
-            pass
 else:
     DB_PATH = os.path.join(os.path.dirname(__file__), "hacksphere.db")
 
-def get_db():
-    # If on Vercel and DB file is somehow missing from /tmp, copy it over
-    if IS_VERCEL and not os.path.exists(DB_PATH):
+def ensure_db_file():
+    """Ensure database file is copied and writable in Vercel serverless /tmp."""
+    if IS_VERCEL:
         src_db = os.path.join(os.path.dirname(__file__), "hacksphere.db")
-        if os.path.exists(src_db):
+        needs_copy = False
+        if not os.path.exists(DB_PATH):
+            needs_copy = True
+        elif os.path.exists(src_db):
             try:
-                shutil.copyfile(src_db, DB_PATH)
-                os.chmod(DB_PATH, 0o666)
+                if os.path.getsize(DB_PATH) == 0:
+                    needs_copy = True
+                elif os.path.getmtime(src_db) > os.path.getmtime(DB_PATH):
+                    needs_copy = True
             except Exception:
                 pass
-    conn = sqlite3.connect(DB_PATH, timeout=20.0)
+
+        if needs_copy and os.path.exists(src_db):
+            try:
+                shutil.copyfile(src_db, DB_PATH)
+            except Exception as e:
+                print("DB copy error:", e)
+
+        # Ensure write permissions
+        for ext in ["", "-wal", "-shm", "-journal"]:
+            p = DB_PATH + ext
+            if os.path.exists(p):
+                try:
+                    os.chmod(p, 0o666)
+                except Exception:
+                    pass
+
+# Call immediately on module load
+ensure_db_file()
+
+def create_raw_connection():
+    """Create a raw, properly configured sqlite3 connection with WAL mode and high timeout."""
+    ensure_db_file()
+    conn = sqlite3.connect(
+        DB_PATH,
+        timeout=60.0,
+        check_same_thread=False
+    )
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode = WAL;")
+    except Exception:
+        pass
+    try:
+        conn.execute("PRAGMA busy_timeout = 60000;")
+    except Exception:
+        pass
+    try:
+        conn.execute("PRAGMA synchronous = NORMAL;")
+    except Exception:
+        pass
+    try:
+        conn.execute("PRAGMA temp_store = MEMORY;")
+    except Exception:
+        pass
     conn.execute("PRAGMA foreign_keys = ON;")
     return conn
 
+class RobustCursorProxy:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+    def execute(self, *args, **kwargs):
+        delay = 0.05
+        for attempt in range(6):
+            try:
+                return self._cursor.execute(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                if ("locked" in str(e).lower() or "busy" in str(e).lower()) and attempt < 5:
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                raise
+
+    def executemany(self, *args, **kwargs):
+        delay = 0.05
+        for attempt in range(6):
+            try:
+                return self._cursor.executemany(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                if ("locked" in str(e).lower() or "busy" in str(e).lower()) and attempt < 5:
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                raise
+
+class RobustConnectionProxy:
+    def __init__(self, conn, is_request=False):
+        self._conn = conn
+        self._is_request = is_request
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def cursor(self):
+        return RobustCursorProxy(self._conn.cursor())
+
+    def execute(self, *args, **kwargs):
+        delay = 0.05
+        for attempt in range(6):
+            try:
+                return self._conn.execute(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                if ("locked" in str(e).lower() or "busy" in str(e).lower()) and attempt < 5:
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                raise
+
+    def executemany(self, *args, **kwargs):
+        delay = 0.05
+        for attempt in range(6):
+            try:
+                return self._conn.executemany(*args, **kwargs)
+            except sqlite3.OperationalError as e:
+                if ("locked" in str(e).lower() or "busy" in str(e).lower()) and attempt < 5:
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                raise
+
+    def commit(self):
+        delay = 0.05
+        for attempt in range(6):
+            try:
+                return self._conn.commit()
+            except sqlite3.OperationalError as e:
+                if ("locked" in str(e).lower() or "busy" in str(e).lower()) and attempt < 5:
+                    time.sleep(delay)
+                    delay *= 2
+                    continue
+                raise
+
+    def close(self):
+        # In request context, actual physical closure is deferred to request teardown
+        # so multiple queries in the same request don't fail or create locks.
+        if not self._is_request:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+
+def get_db():
+    """
+    Get database connection. If running in Flask request context,
+    reuses the connection from flask.g so all operations in the same request
+    share one connection and avoid database locks.
+    """
+    try:
+        from flask import g, has_app_context
+        if has_app_context():
+            if not hasattr(g, "_database") or g._database is None:
+                g._database = create_raw_connection()
+            return RobustConnectionProxy(g._database, is_request=True)
+    except (ImportError, RuntimeError):
+        pass
+    return RobustConnectionProxy(create_raw_connection(), is_request=False)
+
+def close_db_connection(e=None):
+    """Teardown handler to safely close the connection at the end of each request."""
+    try:
+        from flask import g
+        db = getattr(g, "_database", None)
+        if db is not None:
+            g._database = None
+            try:
+                if e is not None:
+                    db.rollback()
+                else:
+                    db.commit()
+            except Exception:
+                pass
+            try:
+                db.close()
+            except Exception:
+                pass
+    except (ImportError, RuntimeError):
+        pass
+
 def init_db():
-    conn = get_db()
+    """Initialize database tables idempotently."""
+    conn = create_raw_connection()
     cursor = conn.cursor()
 
     # Users Table

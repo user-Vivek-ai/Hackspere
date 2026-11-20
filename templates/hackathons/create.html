@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Create Hackathon - HackSphere{% endblock %}
+{% block title %}Host a Hackathon - HackSphere{% endblock %}
 
 {% block content %}
 <div class="container container-narrow" style="padding-top: 3rem; padding-bottom: 5rem;">
@@ -17,33 +17,33 @@
       <!-- Title & Tagline -->
       <div class="form-group">
         <label for="createTitle" class="form-label">Hackathon Title <span style="color: var(--danger);">*</span></label>
-        <input type="text" id="createTitle" name="title" class="form-control" placeholder="e.g. Autonomous AI Hackathon 2026" required>
+        <input type="text" id="createTitle" name="title" class="form-control" placeholder="e.g. Autonomous AI Hackathon 2026" value="{{ form.title if form else '' }}" required>
       </div>
 
       <div class="form-group">
         <label for="createTagline" class="form-label">Short Tagline</label>
-        <input type="text" id="createTagline" name="tagline" class="form-control" placeholder="A one-sentence summary for cards and search results">
+        <input type="text" id="createTagline" name="tagline" class="form-control" placeholder="A one-sentence summary for cards and search results" value="{{ form.tagline if form else '' }}">
       </div>
 
       <!-- Description -->
       <div class="form-group">
         <label for="createDesc" class="form-label">Full Description <span style="color: var(--danger);">*</span></label>
-        <textarea id="createDesc" name="description" rows="5" class="form-control" placeholder="Describe the hackathon objectives, tracks, challenge statements, and background..." required></textarea>
+        <textarea id="createDesc" name="description" rows="5" class="form-control" placeholder="Describe the hackathon objectives, tracks, challenge statements, and background (at least 30 characters)..." required>{{ form.description if form else '' }}</textarea>
       </div>
 
       <!-- Theme & Format Grid -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
         <div class="form-group">
           <label for="createTheme" class="form-label">Topic / Theme <span style="color: var(--danger);">*</span></label>
-          <input type="text" id="createTheme" name="theme" class="form-control" placeholder="e.g. AI & Machine Learning, Web3, FinTech, HealthTech" required>
+          <input type="text" id="createTheme" name="theme" class="form-control" placeholder="e.g. AI & Machine Learning, Web3, FinTech, HealthTech" value="{{ form.theme if form else '' }}" required>
         </div>
 
         <div class="form-group">
           <label for="createFormat" class="form-label">Format <span style="color: var(--danger);">*</span></label>
           <select id="createFormat" name="format" class="form-control" required>
-            <option value="online">Online / Virtual</option>
-            <option value="in-person">In-Person</option>
-            <option value="hybrid">Hybrid</option>
+            <option value="online" {% if form and form.format == 'online' %}selected{% endif %}>Online / Virtual</option>
+            <option value="in-person" {% if form and form.format == 'in-person' %}selected{% endif %}>In-Person</option>
+            <option value="hybrid" {% if form and form.format == 'hybrid' %}selected{% endif %}>Hybrid</option>
           </select>
         </div>
       </div>
@@ -51,19 +51,19 @@
       <!-- Location / Platform -->
       <div class="form-group">
         <label for="createLocation" class="form-label">Location or Online Details</label>
-        <input type="text" id="createLocation" name="location" class="form-control" placeholder="e.g. San Francisco, CA or Virtual via Discord & Zoom">
+        <input type="text" id="createLocation" name="location" class="form-control" placeholder="e.g. San Francisco, CA or Virtual via Discord & Zoom" value="{{ form.location if form else '' }}">
       </div>
 
       <!-- Dates Grid -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
         <div class="form-group">
           <label for="createStartDate" class="form-label">Start Date <span style="color: var(--danger);">*</span></label>
-          <input type="date" id="createStartDate" name="start_date" class="form-control" required>
+          <input type="date" id="createStartDate" name="start_date" class="form-control" value="{{ form.start_date if form else '' }}" required>
         </div>
 
         <div class="form-group">
           <label for="createEndDate" class="form-label">End Date <span style="color: var(--danger);">*</span></label>
-          <input type="date" id="createEndDate" name="end_date" class="form-control" required>
+          <input type="date" id="createEndDate" name="end_date" class="form-control" value="{{ form.end_date if form else '' }}" required>
         </div>
       </div>
 
@@ -71,12 +71,12 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
         <div class="form-group">
           <label for="createRegDeadline" class="form-label">Registration Deadline</label>
-          <input type="date" id="createRegDeadline" name="registration_deadline" class="form-control">
+          <input type="date" id="createRegDeadline" name="registration_deadline" class="form-control" value="{{ form.registration_deadline if form else '' }}">
         </div>
 
         <div class="form-group">
           <label for="createSubDeadline" class="form-label">Submission Deadline</label>
-          <input type="date" id="createSubDeadline" name="submission_deadline" class="form-control">
+          <input type="date" id="createSubDeadline" name="submission_deadline" class="form-control" value="{{ form.submission_deadline if form else '' }}">
         </div>
       </div>
 
@@ -84,62 +84,65 @@
       <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 1rem;">
         <div class="form-group">
           <label for="createTeamMin" class="form-label">Min Team Size</label>
-          <input type="number" id="createTeamMin" name="team_size_min" value="1" min="1" max="20" class="form-control">
+          <input type="number" id="createTeamMin" name="team_size_min" value="{{ form.team_size_min if form and form.team_size_min else '1' }}" min="1" max="20" class="form-control">
         </div>
 
         <div class="form-group">
           <label for="createTeamMax" class="form-label">Max Team Size</label>
-          <input type="number" id="createTeamMax" name="team_size_max" value="4" min="1" max="20" class="form-control">
+          <input type="number" id="createTeamMax" name="team_size_max" value="{{ form.team_size_max if form and form.team_size_max else '4' }}" min="1" max="20" class="form-control">
         </div>
 
         <div class="form-group">
           <label for="createEligibility" class="form-label">Eligibility Criteria</label>
-          <input type="text" id="createEligibility" name="eligibility" class="form-control" placeholder="e.g. Open to developers and students 18+ worldwide">
+          <input type="text" id="createEligibility" name="eligibility" class="form-control" placeholder="e.g. Open to developers and students 18+ worldwide" value="{{ form.eligibility if form else '' }}">
         </div>
       </div>
 
       <!-- Rules & Schedule -->
       <div class="form-group">
         <label for="createRules" class="form-label">Rules & Code of Conduct</label>
-        <textarea id="createRules" name="rules" rows="4" class="form-control" placeholder="1. All work must be original&#10;2. Open-source or public test links&#10;3. Teams must adhere to safety guidelines"></textarea>
+        <textarea id="createRules" name="rules" rows="4" class="form-control" placeholder="1. All work must be original&#10;2. Open-source or public test links&#10;3. Teams must adhere to safety guidelines">{{ form.rules if form else '' }}</textarea>
       </div>
 
       <div class="form-group">
         <label for="createSchedule" class="form-label">Schedule & Milestones</label>
-        <textarea id="createSchedule" name="schedule" rows="4" class="form-control" placeholder="• Day 1: Opening Keynote&#10;• Day 2: Architecture Workshop&#10;• Day 3: Project Submissions Due"></textarea>
+        <textarea id="createSchedule" name="schedule" rows="4" class="form-control" placeholder="• Day 1: Opening Keynote&#10;• Day 2: Architecture Workshop&#10;• Day 3: Project Submissions Due">{{ form.schedule if form else '' }}</textarea>
       </div>
 
       <!-- Judging Criteria & Prizes -->
       <div class="form-group">
         <label for="createJudging" class="form-label">Judging Criteria</label>
-        <textarea id="createJudging" name="judging_criteria" rows="3" class="form-control" placeholder="• Innovation (30%)&#10;• Technical Depth (30%)&#10;• Practical Usability (20%)&#10;• Presentation (20%)"></textarea>
+        <textarea id="createJudging" name="judging_criteria" rows="3" class="form-control" placeholder="• Innovation (30%)&#10;• Technical Depth (30%)&#10;• Practical Usability (20%)&#10;• Presentation (20%)">{{ form.judging_criteria if form else '' }}</textarea>
       </div>
 
       <div class="form-group">
         <label for="createPrizes" class="form-label">Prizes & Awards</label>
-        <input type="text" id="createPrizes" name="prizes" class="form-control" placeholder="e.g. $25,000 Total Cash Pool + Cloud Credits">
+        <input type="text" id="createPrizes" name="prizes" class="form-control" placeholder="e.g. $25,000 Total Cash Pool + Cloud Credits" value="{{ form.prizes if form else '' }}">
       </div>
 
       <!-- Banner URL & Initial Status -->
       <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem;">
         <div class="form-group">
           <label for="createBanner" class="form-label">Cover Banner Image URL</label>
-          <input type="url" id="createBanner" name="banner_url" class="form-control" placeholder="https://images.unsplash.com/photo-...">
+          <input type="url" id="createBanner" name="banner_url" class="form-control" placeholder="https://images.unsplash.com/photo-..." value="{{ form.banner_url if form else '' }}">
         </div>
 
         <div class="form-group">
           <label for="createStatus" class="form-label">Status</label>
           <select id="createStatus" name="status" class="form-control">
-            <option value="upcoming" selected>Upcoming</option>
-            <option value="ongoing">Ongoing</option>
-            <option value="ended">Ended</option>
+            <option value="upcoming" {% if not form or form.status == 'upcoming' %}selected{% endif %}>Upcoming</option>
+            <option value="ongoing" {% if form and form.status == 'ongoing' %}selected{% endif %}>Ongoing</option>
+            <option value="ended" {% if form and form.status == 'ended' %}selected{% endif %}>Ended</option>
           </select>
         </div>
       </div>
 
       <div style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 1.5rem;">
         <a href="{{ url_for('organizer_dashboard') }}" class="btn btn-secondary">Cancel</a>
-        <button type="submit" class="btn btn-primary">Publish Hackathon</button>
+        <button type="submit" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          Publish Hackathon
+        </button>
       </div>
     </form>
   </div>

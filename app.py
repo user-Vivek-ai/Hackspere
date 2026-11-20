@@ -8,7 +8,7 @@ from flask import (
     flash, session, send_file, send_from_directory, abort, jsonify
 )
 from werkzeug.utils import secure_filename
-from database import get_db, init_db
+from database import get_db, init_db, close_db_connection
 from auth import (
     hash_password, verify_password, validate_signup_inputs,
     get_current_user, login_required, role_required,
@@ -18,6 +18,10 @@ from certificates import generate_certificate_code, generate_certificate_pdf, CE
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "hacksphere-super-secure-production-key-2026")
+
+@app.teardown_appcontext
+def teardown_db(exception=None):
+    close_db_connection(exception)
 
 IS_VERCEL = os.environ.get("VERCEL") == "1" or "VERCEL" in os.environ
 
@@ -32,10 +36,17 @@ os.makedirs(CERT_DIR, exist_ok=True)
 # Auto-initialize and seed database on startup / serverless cold-start
 def ensure_database_ready():
     try:
+        db = get_db()
+        user_row = db.execute("SELECT COUNT(*) as c FROM users").fetchone()
+        if user_row and user_row["c"] > 0:
+            return  # Already initialized and populated
+    except Exception:
+        pass
+
+    try:
         init_db()
         db = get_db()
         user_count = db.execute("SELECT COUNT(*) as c FROM users").fetchone()["c"]
-        db.close()
         if user_count == 0:
             from seed import seed_database
             seed_database()
@@ -837,6 +848,10 @@ def hackathon_create():
             flash("Please specify valid start and end dates.", "danger")
             return render_template("hackathons/create.html", form=request.form)
 
+        if end_date < start_date:
+            flash("End date cannot be earlier than start date.", "danger")
+            return render_template("hackathons/create.html", form=request.form)
+
         if not reg_deadline:
             reg_deadline = start_date
         if not sub_deadline:
@@ -866,7 +881,6 @@ def hackathon_create():
             ))
             db.commit()
             new_id = cursor.lastrowid
-            db.close()
 
             flash(f"Hackathon '{title}' created successfully!", "success")
             return redirect(url_for("organizer_manage_hackathon", hackathon_id=new_id))

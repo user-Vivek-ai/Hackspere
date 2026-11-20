@@ -334,5 +334,51 @@ class TestHackSpherePlatform(unittest.TestCase):
         tamper_res = self.client.get(f"/organizer/hackathons/{h_id}/manage", follow_redirects=True)
         self.assertIn(b"not authorized", tamper_res.data)
 
+    def test_09_concurrency_and_no_database_lock(self):
+        """Verify that multi-threaded concurrent operations never encounter 'database is locked' errors."""
+        import concurrent.futures
+
+        # Log in as organizer
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "sarah.organizer@example.com", "password": "Password123!"})
+
+        def create_event(idx):
+            with app.test_client() as c:
+                with c.session_transaction() as sess:
+                    sess["user_id"] = 4
+                    sess["user_role"] = "organizer"
+                    sess["user_name"] = "Sarah Chen"
+                res = c.post("/hackathons/create", data={
+                    "title": f"Concurrent Stress Event #{idx} - NextGen Systems",
+                    "tagline": "High-throughput event creation under stress test",
+                    "description": "Comprehensive description for testing database concurrency and resilience under rapid load (at least 30 chars).",
+                    "theme": "AI & Distributed Systems",
+                    "format": "online",
+                    "location": "Global Virtual Cloud",
+                    "start_date": "2026-12-01",
+                    "end_date": "2026-12-05",
+                    "registration_deadline": "2026-11-30",
+                    "submission_deadline": "2026-12-04",
+                    "team_size_min": "1",
+                    "team_size_max": "4",
+                    "eligibility": "Global builders",
+                    "rules": "1. Safe concurrency test.",
+                    "schedule": "Day 1 to 5",
+                    "judging_criteria": "Speed and Reliability",
+                    "prizes": "$10,000",
+                    "status": "upcoming"
+                }, follow_redirects=True)
+                return res
+
+        # Run 8 concurrent creations across 4 threads
+        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(create_event, i) for i in range(1, 9)]
+            results = [f.result() for f in futures]
+
+        for r in results:
+            self.assertEqual(r.status_code, 200)
+            self.assertNotIn(b"database is locked", r.data)
+            self.assertIn(b"created successfully", r.data)
+
 if __name__ == "__main__":
     unittest.main()
