@@ -56,6 +56,123 @@
     </div>
   </div>
 
+  <!-- ACTION REQUIRED: PENDING REGISTRATIONS -->
+  {% if pending_registrations_list %}
+    <div class="content-block" style="border: 2px solid #f59e0b; background: #fffdf5; padding: 1.5rem; margin-bottom: 2.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="background: #f59e0b; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem;">
+            {{ pending_registrations_list|length }}
+          </span>
+          <h3 style="font-size: 1.3rem; font-weight: 800; color: #92400e; margin: 0;">
+            Action Required: Participant Registrations Awaiting Approval
+          </h3>
+        </div>
+        <span style="font-size: 0.85rem; color: #b45309; font-weight: 600;">
+          Accept participants below to immediately unlock project submissions for them
+        </span>
+      </div>
+
+      <div class="table-card" style="box-shadow: none; border: 1px solid #fed7aa; margin: 0;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Participant Name</th>
+              <th>Account Email</th>
+              <th>Hackathon</th>
+              <th>Registered At</th>
+              <th style="text-align: right;">Instant Review Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for reg in pending_registrations_list %}
+              <tr>
+                <td style="font-weight: 700; color: var(--slate-900);">{{ reg.user_name }}</td>
+                <td>{{ reg.user_email }}</td>
+                <td><strong style="color: var(--primary);">{{ reg.hackathon_title }}</strong></td>
+                <td>{{ reg.registered_at.split()[0] if reg.registered_at else '' }}</td>
+                <td style="text-align: right;">
+                  <form action="{{ url_for('review_registration', hackathon_id=reg.hackathon_id, reg_id=reg.id) }}" method="POST" style="display: inline-flex; gap: 0.4rem; margin: 0;">
+                    <input type="hidden" name="next" value="dashboard">
+                    <input type="hidden" name="decision" value="accepted">
+                    <button type="submit" class="btn btn-sm btn-success" style="font-weight: 700; padding: 0.45rem 1rem;" title="Approve registration">
+                      ✓ Accept &amp; Unlock
+                    </button>
+                  </form>
+                  <form action="{{ url_for('review_registration', hackathon_id=reg.hackathon_id, reg_id=reg.id) }}" method="POST" style="display: inline-flex; margin: 0;">
+                    <input type="hidden" name="next" value="dashboard">
+                    <input type="hidden" name="decision" value="rejected">
+                    <button type="submit" class="btn btn-sm btn-danger" style="padding: 0.45rem 0.75rem;" title="Reject registration">
+                      ✗ Reject
+                    </button>
+                  </form>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- ACTION REQUIRED: PENDING SUBMISSIONS & CERTIFICATES -->
+  {% if pending_submissions_list %}
+    <div class="content-block" style="border: 2px solid #3b82f6; background: #f8faff; padding: 1.5rem; margin-bottom: 2.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="background: #3b82f6; color: #fff; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1rem;">
+            {{ pending_submissions_list|length }}
+          </span>
+          <h3 style="font-size: 1.3rem; font-weight: 800; color: #1e40af; margin: 0;">
+            Action Required: Project Submissions Awaiting Review &amp; Certificate Approval
+          </h3>
+        </div>
+        <span style="font-size: 0.85rem; color: #1d4ed8; font-weight: 600;">
+          Inspect documents and approve to immediately issue official verified PDF certificates
+        </span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for sub in pending_submissions_list %}
+          <div style="background: #fff; border: 1px solid #bfdbfe; border-radius: var(--radius-md); padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">{{ sub.hackathon_title }}</div>
+              <h4 style="font-size: 1.3rem; font-weight: 800; color: var(--slate-900); margin: 0.2rem 0;">{{ sub.project_name }}</h4>
+              <div style="font-size: 0.85rem; color: var(--slate-600);">
+                Submitted by <strong>{{ sub.submitter_name }}</strong> ({{ sub.submitter_email }}) &bull; Recipient on Certificate: <strong>{{ sub.submitter_name }}</strong>
+              </div>
+              <div style="display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.5rem; font-size: 0.85rem; align-items: center;">
+                {% if sub.demo_url %}
+                  <a href="{{ sub.demo_url }}" target="_blank" style="font-weight: 600; color: var(--primary);">🌐 Live Demo &rarr;</a>
+                {% endif %}
+                {% if sub.repo_url %}
+                  <a href="{{ sub.repo_url }}" target="_blank" style="font-weight: 600; color: var(--slate-700);">💻 Source Code &rarr;</a>
+                {% endif %}
+                {% if sub.file_path %}
+                  <a href="{{ sub.file_path }}" target="_blank" style="font-weight: 700; color: #1e40af; background: #eff6ff; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid #bfdbfe;">
+                    📄 View Project Document (PDF) &rarr;
+                  </a>
+                {% endif %}
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+              <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=sub.hackathon_id) }}?tab=submissions" class="btn btn-sm btn-secondary">
+                Detailed Review
+              </a>
+              <form action="{{ url_for('quick_approve_submission', submission_id=sub.id) }}" method="POST" style="margin: 0;">
+                <input type="hidden" name="next" value="dashboard">
+                <button type="submit" class="btn btn-sm btn-success" style="font-weight: 700; padding: 0.45rem 1rem;">
+                  ⭐ Approve &amp; Award Certificate
+                </button>
+              </form>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
   <!-- Search & Filter Bar -->
   <div class="filter-bar" style="margin-bottom: 2rem;">
     <form action="{{ url_for('organizer_dashboard') }}" method="GET" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">

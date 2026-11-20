@@ -740,7 +740,14 @@ def organizer_dashboard():
     search_q = request.args.get("q", "").strip()
     status_filter = request.args.get("status", "").strip()
 
-    sql = """
+    # Check if this organizer has any created hackathons
+    own_count = db.execute("SELECT COUNT(*) as c FROM hackathons WHERE organizer_id = ?", (organizer_id,)).fetchone()["c"]
+
+    # If this organizer account owns hackathons, show theirs; otherwise show all platform hackathons
+    where_clause = "WHERE h.organizer_id = ?" if own_count > 0 else "WHERE 1=1"
+    params = [organizer_id] if own_count > 0 else []
+
+    sql = f"""
         SELECT h.*,
                (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id) as reg_count,
                (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id AND status = 'pending') as pending_reg_count,
@@ -750,9 +757,8 @@ def organizer_dashboard():
                (SELECT COUNT(*) FROM submissions WHERE hackathon_id = h.id AND status IN ('accepted', 'approved')) as accepted_count,
                (SELECT COUNT(*) FROM certificates WHERE hackathon_id = h.id) as cert_count
         FROM hackathons h
-        WHERE h.organizer_id = ?
+        {where_clause}
     """
-    params = [organizer_id]
     if search_q:
         sql += " AND (h.title LIKE ? OR h.theme LIKE ? OR h.tagline LIKE ?)"
         wildcard = f"%{search_q}%"
@@ -764,25 +770,51 @@ def organizer_dashboard():
 
     hackathons = db.execute(sql, params).fetchall()
 
-    # Aggregate stats across all organizer hackathons
-    all_hackathons = db.execute("""
-        SELECT h.id,
-               (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id) as reg_count,
-               (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id AND status = 'pending') as pending_reg_count,
-               (SELECT COUNT(*) FROM submissions WHERE hackathon_id = h.id) as sub_count,
-               (SELECT COUNT(*) FROM submissions WHERE hackathon_id = h.id AND status IN ('pending', 'under_review')) as pending_count,
-               (SELECT COUNT(*) FROM certificates WHERE hackathon_id = h.id) as cert_count
-        FROM hackathons h
-        WHERE h.organizer_id = ?
-    """, (organizer_id,)).fetchall()
+    # Pending participant registrations that need organizer approval
+    if own_count > 0:
+        pending_registrations_list = db.execute("""
+            SELECT r.*, h.title as hackathon_title, h.id as hackathon_id
+            FROM registrations r
+            JOIN hackathons h ON r.hackathon_id = h.id
+            WHERE h.organizer_id = ? AND r.status = 'pending'
+            ORDER BY r.registered_at DESC
+        """, (organizer_id,)).fetchall()
+
+        pending_submissions_list = db.execute("""
+            SELECT s.*, h.title as hackathon_title, h.id as hackathon_id,
+                   u.name as submitter_name, u.email as submitter_email
+            FROM submissions s
+            JOIN hackathons h ON s.hackathon_id = h.id
+            JOIN users u ON s.user_id = u.id
+            WHERE h.organizer_id = ? AND s.status IN ('pending', 'under_review')
+            ORDER BY s.submitted_at DESC
+        """, (organizer_id,)).fetchall()
+    else:
+        pending_registrations_list = db.execute("""
+            SELECT r.*, h.title as hackathon_title, h.id as hackathon_id
+            FROM registrations r
+            JOIN hackathons h ON r.hackathon_id = h.id
+            WHERE r.status = 'pending'
+            ORDER BY r.registered_at DESC
+        """).fetchall()
+
+        pending_submissions_list = db.execute("""
+            SELECT s.*, h.title as hackathon_title, h.id as hackathon_id,
+                   u.name as submitter_name, u.email as submitter_email
+            FROM submissions s
+            JOIN hackathons h ON s.hackathon_id = h.id
+            JOIN users u ON s.user_id = u.id
+            WHERE s.status IN ('pending', 'under_review')
+            ORDER BY s.submitted_at DESC
+        """).fetchall()
 
     stats = {
-        "total_hackathons": len(all_hackathons),
-        "total_registrations": sum(h["reg_count"] for h in all_hackathons),
-        "pending_registrations": sum(h["pending_reg_count"] for h in all_hackathons),
-        "total_submissions": sum(h["sub_count"] for h in all_hackathons),
-        "pending_reviews": sum(h["pending_count"] for h in all_hackathons),
-        "total_certificates": sum(h["cert_count"] for h in all_hackathons),
+        "total_hackathons": len(hackathons),
+        "total_registrations": sum(h["reg_count"] for h in hackathons),
+        "pending_registrations": sum(h["pending_reg_count"] for h in hackathons),
+        "total_submissions": sum(h["sub_count"] for h in hackathons),
+        "pending_reviews": sum(h["pending_count"] for h in hackathons),
+        "total_certificates": sum(h["cert_count"] for h in hackathons),
     }
 
     db.close()
@@ -790,6 +822,8 @@ def organizer_dashboard():
         "organizer/dashboard.html",
         hackathons=hackathons,
         stats=stats,
+        pending_registrations_list=pending_registrations_list,
+        pending_submissions_list=pending_submissions_list,
         search_query=search_q,
         status_filter=status_filter
     )
@@ -906,7 +940,7 @@ def hackathon_edit(hackathon_id):
 
     if hackathon["organizer_id"] != organizer_id:
         db.close()
-        flash("You are not authorized to edit this hackathon.", "danger")
+        flash("You are not authorized to manage this hackathon.", "danger")
         return redirect(url_for("organizer_dashboard"))
 
     if request.method == "POST":
@@ -992,6 +1026,11 @@ def organizer_manage_hackathon(hackathon_id):
         flash("You are not authorized to manage this hackathon.", "danger")
         return redirect(url_for("organizer_dashboard"))
 
+    if hackathon["organizer_id"] != organizer_id:
+        db.close()
+        flash("You are not authorized to manage this hackathon.", "danger")
+        return redirect(url_for("organizer_dashboard"))
+
     # Registered participants
     participants = db.execute("""
         SELECT r.*, s.id as submission_id, s.status as submission_status, s.project_name
@@ -1037,6 +1076,7 @@ def organizer_manage_hackathon(hackathon_id):
 def review_registration(hackathon_id, reg_id):
     organizer_id = session["user_id"]
     decision = request.form.get("decision", "").strip().lower()  # 'accepted' or 'rejected'
+    next_page = request.form.get("next", "")
 
     if decision not in ("accepted", "rejected"):
         flash("Invalid decision. Must be 'accepted' or 'rejected'.", "danger")
@@ -1044,7 +1084,12 @@ def review_registration(hackathon_id, reg_id):
 
     db = get_db()
     hackathon = db.execute("SELECT * FROM hackathons WHERE id = ?", (hackathon_id,)).fetchone()
-    if not hackathon or hackathon["organizer_id"] != organizer_id:
+    if not hackathon:
+        db.close()
+        flash("Hackathon not found.", "warning")
+        return redirect(url_for("organizer_dashboard"))
+
+    if hackathon["organizer_id"] != organizer_id:
         db.close()
         flash("You are not authorized to manage this hackathon.", "danger")
         return redirect(url_for("organizer_dashboard"))
@@ -1057,15 +1102,83 @@ def review_registration(hackathon_id, reg_id):
     if not reg:
         db.close()
         flash("Registration record not found.", "warning")
-        return redirect(url_for("organizer_manage_hackathon", hackathon_id=hackathon_id))
+        return redirect(url_for("organizer_dashboard" if next_page == "dashboard" else "organizer_manage_hackathon", hackathon_id=hackathon_id))
 
     db.execute("UPDATE registrations SET status = ? WHERE id = ?", (decision, reg_id))
     db.commit()
     db.close()
 
-    status_label = "Accepted" if decision == "accepted" else "Rejected"
-    flash(f"Registration for {reg['user_name']} has been marked as {status_label}.", "success")
+    status_label = "Approved & Accepted" if decision == "accepted" else "Rejected"
+    flash(f"Registration for {reg['user_name']} has been {status_label}! The participant can now submit their project.", "success")
+    if next_page == "dashboard":
+        return redirect(url_for("organizer_dashboard"))
     return redirect(url_for("organizer_manage_hackathon", hackathon_id=hackathon_id, tab="participants"))
+
+@app.route("/organizer/submissions/<int:submission_id>/quick-approve", methods=["POST"])
+@login_required
+@role_required("organizer")
+def quick_approve_submission(submission_id):
+    next_page = request.form.get("next", "dashboard")
+    db = get_db()
+    sub = db.execute("""
+        SELECT s.*, h.title as hackathon_title, h.start_date, h.end_date,
+               u.name as participant_name, u.email as participant_email,
+               org.name as organizer_name
+        FROM submissions s
+        JOIN hackathons h ON s.hackathon_id = h.id
+        JOIN users u ON s.user_id = u.id
+        JOIN users org ON h.organizer_id = org.id
+        WHERE s.id = ?
+    """, (submission_id,)).fetchone()
+
+    if not sub:
+        db.close()
+        flash("Submission not found.", "warning")
+        return redirect(url_for("organizer_dashboard"))
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    db.execute("""
+        UPDATE submissions
+        SET status = 'approved', reviewed_at = ?, feedback = 'Project reviewed and approved by hackathon organizer! Congratulations on your submission.'
+        WHERE id = ?
+    """, (now_str, submission_id))
+
+    # Issue verified certificate
+    cert_code = generate_certificate_code()
+    pdf_filename = f"{cert_code}.pdf"
+    pdf_path = os.path.join(CERT_DIR, pdf_filename)
+    verify_url = url_for("verify_certificate", certificate_code=cert_code, _external=True)
+    event_dates = f"{sub['start_date']} to {sub['end_date']}"
+
+    generate_certificate_pdf(
+        certificate_code=cert_code,
+        participant_name=sub["participant_name"],
+        hackathon_title=sub["hackathon_title"],
+        event_dates=event_dates,
+        organizer_name=sub["organizer_name"],
+        project_name=sub["project_name"],
+        output_path=pdf_path,
+        verify_url=verify_url
+    )
+
+    db.execute("""
+        INSERT OR REPLACE INTO certificates (
+            certificate_code, hackathon_id, user_id, submission_id,
+            participant_name, hackathon_title, event_dates, organizer_name,
+            issued_at, pdf_path
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        cert_code, sub["hackathon_id"], sub["user_id"], submission_id,
+        sub["participant_name"], sub["hackathon_title"], event_dates,
+        sub["organizer_name"], now_str, pdf_path
+    ))
+    db.commit()
+    db.close()
+
+    flash(f"Project '{sub['project_name']}' by {sub['participant_name']} has been APPROVED! Official Certificate {cert_code} has been generated and unlocked for the participant.", "success")
+    if next_page == "manage":
+        return redirect(url_for("organizer_manage_hackathon", hackathon_id=sub["hackathon_id"], tab="submissions"))
+    return redirect(url_for("organizer_dashboard"))
 
 @app.route("/api/submissions/<int:submission_id>/review", methods=["POST"])
 @login_required
