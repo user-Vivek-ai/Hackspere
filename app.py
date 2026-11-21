@@ -14,7 +14,10 @@ from auth import (
     get_current_user, login_required, role_required,
     generate_reset_token, verify_reset_token
 )
-from certificates import generate_certificate_code, generate_certificate_pdf, CERT_DIR
+from certificates import (
+    generate_certificate_code, generate_certificate_pdf, CERT_DIR,
+    build_verify_url, decode_verify_token
+)
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
@@ -680,13 +683,19 @@ def download_certificate(certificate_code):
     if not pdf_path or not os.path.exists(pdf_path):
         filename = f"{cert['certificate_code']}.pdf"
         pdf_path = os.path.join(CERT_DIR, filename)
-        
+
         # Look up project name
         sub = db.execute("SELECT project_name FROM submissions WHERE id = ?", (cert["submission_id"],)).fetchone()
         project_name = sub["project_name"] if sub else None
 
+        # Build self-contained signed verify URL (works on any Vercel Lambda instance)
         base_url = request.host_url.rstrip("/")
-        verify_url = f"{base_url}/verify-certificate/{cert['certificate_code']}"
+        verify_url = build_verify_url(
+            base_url,
+            cert["certificate_code"], cert["participant_name"], cert["hackathon_title"],
+            project_name, cert["organizer_name"], cert["event_dates"],
+            cert.get("issued_at", "")
+        )
 
         generate_certificate_pdf(
             certificate_code=cert["certificate_code"],
@@ -696,7 +705,8 @@ def download_certificate(certificate_code):
             organizer_name=cert["organizer_name"],
             project_name=project_name,
             output_path=pdf_path,
-            verify_url=verify_url
+            verify_url=verify_url,
+            issued_at=cert.get("issued_at", "")
         )
         # Update path
         db.execute("UPDATE certificates SET pdf_path = ? WHERE id = ?", (pdf_path, cert["id"]))
@@ -713,17 +723,42 @@ def download_certificate(certificate_code):
 @app.route("/verify/<certificate_code>")
 @app.route("/verify-certificate/<certificate_code>")
 def verify_certificate(certificate_code):
+    """
+    Public certificate verification page — works in TWO ways:
+    1. TOKEN-BASED (primary): QR code embeds ?t=<signed_token> containing all cert data.
+       This works on any Vercel Lambda instance even if its /tmp DB doesn't have the cert.
+    2. DB LOOKUP (fallback): If token is absent or invalid, query the database.
+    """
+    cert = None
+    token_data = None
     db = get_db()
-    cert = db.execute("""
-        SELECT c.*, s.project_name, s.status as submission_status, h.theme, h.format, h.location
-        FROM certificates c
-        JOIN submissions s ON c.submission_id = s.id
-        JOIN hackathons h ON c.hackathon_id = h.id
-        WHERE c.certificate_code = ?
-    """, (certificate_code,)).fetchone()
+
+    # ── Method 1: Try to decode the signed token from QR code URL ──────────
+    token = request.args.get("t", "").strip()
+    if token:
+        decoded = decode_verify_token(token)
+        if decoded and decoded.get("c") == certificate_code:
+            token_data = decoded  # We trust this — it's HMAC-signed by our server
+
+    # ── Method 2: Also try DB lookup (may succeed on the same Lambda instance) ──
+    try:
+        cert = db.execute("""
+            SELECT c.*, s.project_name, s.status as submission_status, h.theme, h.format, h.location
+            FROM certificates c
+            JOIN submissions s ON c.submission_id = s.id
+            JOIN hackathons h ON c.hackathon_id = h.id
+            WHERE c.certificate_code = ?
+        """, (certificate_code,)).fetchone()
+    except Exception:
+        cert = None
     db.close()
 
-    return render_template("verify_certificate.html", cert=cert, certificate_code=certificate_code)
+    return render_template(
+        "verify_certificate.html",
+        cert=cert,
+        token_data=token_data,
+        certificate_code=certificate_code
+    )
 
 # ==========================================
 # ORGANIZER ROUTES
@@ -1129,8 +1164,15 @@ def quick_approve_submission(submission_id):
     cert_code = generate_certificate_code()
     pdf_filename = f"{cert_code}.pdf"
     pdf_path = os.path.join(CERT_DIR, pdf_filename)
-    verify_url = url_for("verify_certificate", certificate_code=cert_code, _external=True)
     event_dates = f"{sub['start_date']} to {sub['end_date']}"
+
+    # Build self-contained signed verification URL that works on any Vercel Lambda instance
+    base_url = request.host_url.rstrip("/")
+    verify_url = build_verify_url(
+        base_url,
+        cert_code, sub["participant_name"], sub["hackathon_title"],
+        sub["project_name"], sub["organizer_name"], event_dates, now_str
+    )
 
     generate_certificate_pdf(
         certificate_code=cert_code,
@@ -1140,7 +1182,8 @@ def quick_approve_submission(submission_id):
         organizer_name=sub["organizer_name"],
         project_name=sub["project_name"],
         output_path=pdf_path,
-        verify_url=verify_url
+        verify_url=verify_url,
+        issued_at=now_str
     )
 
     db.execute("""
@@ -1226,9 +1269,13 @@ def review_submission(submission_id):
             pdf_path = os.path.join(CERT_DIR, pdf_filename)
             event_dates = f"{sub['start_date']} to {sub['end_date']}"
 
-            # Build verify URL — works on both Vercel and local
+            # Build self-contained signed verification URL that works on any Lambda instance
             base_url = request.host_url.rstrip("/")
-            verify_url = f"{base_url}/verify-certificate/{cert_code}"
+            verify_url = build_verify_url(
+                base_url,
+                cert_code, sub["participant_name"], sub["hackathon_title"],
+                sub["project_name"], sub["organizer_name"], event_dates, now_str
+            )
 
             # Generate real PDF certificate using participant's account profile name
             generate_certificate_pdf(
@@ -1239,7 +1286,8 @@ def review_submission(submission_id):
                 organizer_name=sub["organizer_name"],
                 project_name=sub["project_name"],
                 output_path=pdf_path,
-                verify_url=verify_url
+                verify_url=verify_url,
+                issued_at=now_str
             )
 
             db.execute("""
@@ -1317,8 +1365,14 @@ def issue_certificate_manual(submission_id):
         pdf_path = os.path.join(CERT_DIR, pdf_filename)
         event_dates = f"{sub['start_date']} to {sub['end_date']}"
         base_url = request.host_url.rstrip("/")
-        verify_url = f"{base_url}/verify-certificate/{cert_code}"
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Build self-contained signed verification URL that works on any Lambda instance
+        verify_url = build_verify_url(
+            base_url,
+            cert_code, sub["participant_name"], sub["hackathon_title"],
+            sub["project_name"], sub["organizer_name"], event_dates, now_str
+        )
 
         generate_certificate_pdf(
             certificate_code=cert_code,
@@ -1328,7 +1382,8 @@ def issue_certificate_manual(submission_id):
             organizer_name=sub["organizer_name"],
             project_name=sub["project_name"],
             output_path=pdf_path,
-            verify_url=verify_url
+            verify_url=verify_url,
+            issued_at=now_str
         )
 
         db.execute("""

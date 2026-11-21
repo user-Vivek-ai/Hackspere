@@ -200,7 +200,7 @@ class TestHackSpherePlatform(unittest.TestCase):
         # Verify on public verification registry
         verify_res = self.client.get(f"/verify-certificate/{cert['certificate_code']}")
         self.assertEqual(verify_res.status_code, 200)
-        self.assertIn(b"Officially Verified Credential", verify_res.data)
+        self.assertIn(b"OFFICIALLY VERIFIED CREDENTIAL", verify_res.data)
         self.assertIn(b"Priya Patel", verify_res.data)
 
     def test_06_edge_case_unauthorized_certificate_download_prevented(self):
@@ -528,7 +528,7 @@ class TestHackSpherePlatform(unittest.TestCase):
         self.assertIn(b"Alan Turing Jr", verify_res.data)
         self.assertIn(b"Quantum Matrix Simulator", verify_res.data)
         self.assertIn(b"Quantum Neural Hackathon 2026", verify_res.data)
-        self.assertIn(b"Officially Verified", verify_res.data)
+        self.assertIn(b"OFFICIALLY VERIFIED", verify_res.data)
 
 if __name__ == "__main__":
     unittest.main()

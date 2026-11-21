@@ -2,7 +2,7 @@ import os
 from datetime import datetime, timedelta
 from database import get_db, init_db
 from auth import hash_password
-from certificates import generate_certificate_code, generate_certificate_pdf
+from certificates import generate_certificate_code, generate_certificate_pdf, build_verify_url
 
 def seed_database():
     init_db()
@@ -300,7 +300,18 @@ def seed_database():
         cert_code = "HS-2026-HC98B2"
         pdf_filename = f"{cert_code}.pdf"
         pdf_path = os.path.join(os.path.dirname(__file__), "static", "certificates", pdf_filename)
-        
+        issued_at = "2026-10-30"
+
+        # Build self-contained signed QR URL that works without DB on any Lambda
+        verify_url = build_verify_url(
+            "https://hackathon-hub-kappa.vercel.app",
+            cert_code, "Alex Rivera",
+            "Global HealthTech Innovation Challenge 2026",
+            "PulseCare Telehealth Diagnostics",
+            "David Miller", "Oct 26 - Oct 30, 2026",
+            issued_at
+        )
+
         # Generate the physical PDF file
         generate_certificate_pdf(
             certificate_code=cert_code,
@@ -310,7 +321,8 @@ def seed_database():
             organizer_name="David Miller",
             project_name="PulseCare Telehealth Diagnostics",
             output_path=pdf_path,
-            verify_url=f"https://hackathon-hub-kappa.vercel.app/verify-certificate/{cert_code}"
+            verify_url=verify_url,
+            issued_at=issued_at
         )
 
         cursor.execute("""

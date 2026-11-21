@@ -4,118 +4,208 @@
 
 {% block content %}
 <div class="container container-narrow" style="padding-top: 4rem; padding-bottom: 5rem;">
+
+  <!-- Page Header -->
   <div style="text-align: center; margin-bottom: 2.5rem;">
-    <div style="width: 56px; height: 56px; margin: 0 auto 1rem; border-radius: 50%; background: #dbeafe; color: #1e40af; display: flex; align-items: center; justify-content: center;">
-      <svg width="30" height="30" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+    <div style="width: 64px; height: 64px; margin: 0 auto 1.25rem; border-radius: 50%;
+                background: linear-gradient(135deg, #dbeafe, #ede9fe);
+                color: #1e40af; display: flex; align-items: center; justify-content: center;
+                box-shadow: 0 4px 16px rgba(99,102,241,0.18);">
+      <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+          d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
       </svg>
     </div>
-    <h1 style="font-size: 2.25rem; font-weight: 800; color: var(--slate-900);">Certificate Verification Registry</h1>
+    <h1 style="font-size: 2.25rem; font-weight: 800; color: var(--slate-900);">
+      Certificate Verification Registry
+    </h1>
     <p style="color: var(--slate-600); font-size: 1rem; margin-top: 0.25rem;">
-      Public validation ledger for HackSphere issued credentials
+      Official HackSphere credential validation — scan or visit to verify authenticity
     </p>
   </div>
 
-  {% if cert %}
-    <div class="content-block" style="border: 2px solid #a7f3d0; background: linear-gradient(180deg, #ffffff 0%, #f0fdf4 100%);">
-      <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 1.25rem; border-bottom: 1px solid #dcfce7; margin-bottom: 1.5rem;">
-        <div style="display: flex; align-items: center; gap: 0.5rem;">
-          <svg width="22" height="22" fill="var(--success)" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-          </svg>
-          <span style="font-weight: 800; color: var(--success-text); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 0.05em;">
-            Officially Verified Credential
-          </span>
-        </div>
-        <span class="badge badge-accepted">Active & Authentic</span>
-      </div>
+  {% if cert or token_data %}
+    {# Merge cert data from DB and/or from signed QR token #}
+    {% if cert %}
+      {% set p_name     = cert.participant_name %}
+      {% set h_title    = cert.hackathon_title %}
+      {% set proj_name  = cert.project_name %}
+      {% set org_name   = cert.organizer_name %}
+      {% set evt_dates  = cert.event_dates %}
+      {% set issued     = cert.issued_at.split()[0] %}
+      {% set cert_fmt   = cert.format %}
+    {% else %}
+      {% set p_name     = token_data.n %}
+      {% set h_title    = token_data.h %}
+      {% set proj_name  = token_data.p %}
+      {% set org_name   = token_data.o %}
+      {% set evt_dates  = token_data.d %}
+      {% set issued     = token_data.i %}
+      {% set cert_fmt   = "online" %}
+    {% endif %}
 
-      <div style="display: grid; grid-template-columns: 1fr; gap: 1.25rem; font-size: 0.95rem;">
-        <!-- Recipient Highlight Box -->
-        <div style="background: #ffffff; border: 2px solid var(--primary); border-radius: var(--radius-lg); padding: 1.25rem; text-align: center; box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);">
-          <div style="font-size: 0.75rem; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.25rem;">
-            CERTIFIED PARTICIPANT
-          </div>
-          <div style="font-size: 1.75rem; font-weight: 900; color: #1e3a8a; letter-spacing: -0.02em;">
-            {{ cert.participant_name }}
-          </div>
-          <div style="font-size: 0.85rem; color: var(--slate-600); margin-top: 0.25rem;">
-            Successfully built & submitted accepted project <strong>"{{ cert.project_name }}"</strong>
-          </div>
-        </div>
-
-        <div>
-          <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Certificate Code</div>
-          <div style="font-family: monospace; font-size: 1.35rem; font-weight: 800; color: var(--slate-900);">
-            {{ cert.certificate_code }}
-          </div>
-        </div>
-
-        <div>
-          <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Hackathon Event</div>
-          <div style="font-size: 1.15rem; font-weight: 700; color: var(--slate-900);">
-            {{ cert.hackathon_title }}
-          </div>
-        </div>
-
-        <div>
-          <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Accepted Project Submission</div>
-          <div style="font-size: 1.05rem; font-weight: 600; color: var(--slate-800);">
-            {{ cert.project_name }}
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--slate-200);">
-          <div>
-            <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Organizer</div>
-            <div style="font-weight: 600; color: var(--slate-900);">{{ cert.organizer_name }}</div>
-          </div>
-          <div>
-            <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Event Dates</div>
-            <div style="font-weight: 600; color: var(--slate-900);">{{ cert.event_dates }}</div>
-          </div>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-          <div>
-            <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Issue Date</div>
-            <div style="color: var(--slate-700);">{{ cert.issued_at.split()[0] }}</div>
-          </div>
-          <div>
-            <div style="font-size: 0.8rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">Format</div>
-            <div style="color: var(--slate-700);"><span class="badge badge-{{ cert.format }}">{{ cert.format }}</span></div>
-          </div>
-        </div>
-      </div>
-
-      <div style="margin-top: 2rem; display: flex; gap: 1rem;">
-        {% if current_user %}
-          <a href="{{ url_for('download_certificate', certificate_code=cert.certificate_code) }}" class="btn btn-primary" style="flex: 1;">
-            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-            </svg>
-            Download PDF Certificate
-          </a>
-        {% else %}
-          <a href="{{ url_for('auth_login') }}" class="btn btn-primary" style="flex: 1;">
-            Log In to Download PDF
-          </a>
-        {% endif %}
-      </div>
-    </div>
-  {% else %}
-    <div class="empty-state" style="border-color: #fecaca; background: #fff5f5;">
-      <div class="empty-state-icon" style="background: #fee2e2; color: #dc2626;">
-        <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    <!-- ✅ Verified Banner -->
+    <div style="background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 2px solid #4ade80;
+                border-radius: 1rem; padding: 1.75rem 2rem; margin-bottom: 1.75rem;
+                display: flex; align-items: center; gap: 1rem; box-shadow: 0 4px 20px rgba(74,222,128,0.15);">
+      <div style="width: 52px; height: 52px; border-radius: 50%; background: #22c55e; color: #fff;
+                  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+                  box-shadow: 0 4px 12px rgba(34,197,94,0.35);">
+        <svg width="26" height="26" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
         </svg>
       </div>
-      <div class="empty-state-title" style="color: var(--danger-text);">Certificate Record Not Found</div>
-      <p class="empty-state-text" style="color: #991b1b;">
-        No credential found for ID <code>{{ certificate_code }}</code>. Certificates are only minted once an organizer officially accepts a project.
+      <div>
+        <div style="font-size: 1.15rem; font-weight: 800; color: #15803d; letter-spacing: 0.03em;">
+          ✅ OFFICIALLY VERIFIED CREDENTIAL
+        </div>
+        <div style="font-size: 0.88rem; color: #166534; margin-top: 0.1rem;">
+          This certificate has been cryptographically verified as authentic and issued by HackSphere.
+          {% if cert %}Verified via secure database registry.{% else %}Verified via signed QR token.{% endif %}
+        </div>
+      </div>
+      <div style="margin-left: auto; flex-shrink: 0;">
+        <span style="display: inline-flex; align-items: center; gap: 0.4rem; background: #16a34a; color: #fff;
+                     font-weight: 700; font-size: 0.8rem; padding: 0.4rem 0.9rem; border-radius: 999px;">
+          <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          ACTIVE & AUTHENTIC
+        </span>
+      </div>
+    </div>
+
+    <!-- Certificate Details Card -->
+    <div class="content-block" style="border: 1px solid #e2e8f0; box-shadow: 0 8px 32px rgba(0,0,0,0.07);">
+
+      <!-- Participant Hero -->
+      <div style="background: linear-gradient(135deg, #1e3a8a, #3730a3); border-radius: 0.75rem;
+                  padding: 2rem; text-align: center; margin-bottom: 2rem; color: #fff;
+                  box-shadow: 0 4px 16px rgba(30,58,138,0.25);">
+        <div style="font-size: 0.75rem; font-weight: 700; letter-spacing: 0.15em; opacity: 0.75; margin-bottom: 0.5rem;">
+          CERTIFIED PARTICIPANT
+        </div>
+        <div style="font-size: 2rem; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 0.5rem;">
+          {{ p_name }}
+        </div>
+        <div style="font-size: 0.9rem; opacity: 0.85;">
+          Successfully designed, built &amp; submitted accepted project
+          {% if proj_name %}<strong>"{{ proj_name }}"</strong>{% endif %}
+        </div>
+      </div>
+
+      <!-- Details Grid -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; font-size: 0.95rem;">
+
+        <div style="grid-column: 1 / -1;">
+          <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+            Certificate ID
+          </div>
+          <div style="font-family: 'Courier New', monospace; font-size: 1.3rem; font-weight: 800; color: var(--slate-900);
+                      background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 0.5rem; padding: 0.6rem 1rem;
+                      display: inline-block;">
+            {{ certificate_code }}
+          </div>
+        </div>
+
+        <div style="grid-column: 1 / -1;">
+          <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+            Hackathon Event
+          </div>
+          <div style="font-size: 1.1rem; font-weight: 700; color: var(--slate-900);">
+            {{ h_title }}
+          </div>
+        </div>
+
+        {% if proj_name %}
+        <div>
+          <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+            Accepted Project
+          </div>
+          <div style="font-weight: 600; color: var(--slate-800);">{{ proj_name }}</div>
+        </div>
+        {% endif %}
+
+        <div>
+          <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+            Organizer
+          </div>
+          <div style="font-weight: 600; color: var(--slate-800);">{{ org_name }}</div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+            Event Dates
+          </div>
+          <div style="font-weight: 600; color: var(--slate-800);">{{ evt_dates }}</div>
+        </div>
+
+        <div>
+          <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+            Issued On
+          </div>
+          <div style="color: var(--slate-700);">{{ issued }}</div>
+        </div>
+
+        {% if cert_fmt %}
+        <div>
+          <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem;">
+            Format
+          </div>
+          <div><span class="badge badge-{{ cert_fmt }}">{{ cert_fmt }}</span></div>
+        </div>
+        {% endif %}
+
+      </div><!-- /grid -->
+
+      <!-- Download / Login Actions -->
+      <div style="margin-top: 2rem; display: flex; gap: 1rem; flex-wrap: wrap;">
+        {% if cert %}
+          {% if current_user %}
+            <a href="{{ url_for('download_certificate', certificate_code=cert.certificate_code) }}"
+               class="btn btn-primary" style="flex: 1; justify-content: center;">
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+              </svg>
+              Download PDF Certificate
+            </a>
+          {% else %}
+            <a href="{{ url_for('auth_login') }}" class="btn btn-primary" style="flex: 1; justify-content: center;">
+              Log In to Download PDF
+            </a>
+          {% endif %}
+        {% elif token_data %}
+          <div style="flex: 1; background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.5rem;
+                      padding: 0.85rem 1.25rem; color: #92400e; font-size: 0.9rem; font-weight: 500;">
+            ℹ️  This certificate was verified via the QR code embedded in the PDF. Log in to your HackSphere account to download the PDF.
+          </div>
+        {% endif %}
+        <a href="{{ url_for('index') }}" class="btn btn-secondary" style="white-space: nowrap;">← Return Home</a>
+      </div>
+
+    </div><!-- /content-block -->
+
+  {% else %}
+    <!-- ❌ Not Found -->
+    <div class="empty-state" style="border-color: #fecaca; background: #fff5f5; border-radius: 1rem; padding: 3rem;">
+      <div class="empty-state-icon" style="background: #fee2e2; color: #dc2626; width: 72px; height: 72px; border-radius: 50%;
+           margin: 0 auto 1.5rem; display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+        ⚠️
+      </div>
+      <div class="empty-state-title" style="color: #b91c1c; font-size: 1.5rem; font-weight: 800; margin-bottom: 0.75rem;">
+        Certificate Record Not Found
+      </div>
+      <p class="empty-state-text" style="color: #991b1b; max-width: 440px; margin: 0 auto 1.5rem;">
+        No credential found for ID <code style="background:#fee2e2;padding:2px 6px;border-radius:4px;">{{ certificate_code }}</code>.
+        Certificates are only issued once an organizer officially approves a submitted project.
       </p>
-      <a href="{{ url_for('index') }}" class="btn btn-secondary">Return Home</a>
+      <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary">Return Home</a>
+        <a href="{{ url_for('auth_login') }}" class="btn btn-primary">Sign In to Your Account</a>
+      </div>
     </div>
   {% endif %}
+
 </div>
 {% endblock %}
