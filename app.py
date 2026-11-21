@@ -88,6 +88,14 @@ def serve_upload(filename):
 @app.context_processor
 def inject_global_data():
     current_user = get_current_user()
+    if not current_user and session.get("user_id") and session.get("user_name"):
+        current_user = {
+            "id": session.get("user_id"),
+            "name": session.get("user_name"),
+            "email": session.get("user_email", ""),
+            "role": session.get("user_role", "participant"),
+            "status": "active"
+        }
     return {
         "current_user": current_user,
         "now": datetime.now()

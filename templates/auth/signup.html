@@ -1,49 +1,97 @@
 {% extends "base.html" %}
 
-{% block title %}Sign Up - HackSphere{% endblock %}
+{% block title %}Create Account - HackSphere Platform{% endblock %}
 
 {% block content %}
-<div class="auth-wrapper">
-  <div class="auth-card" style="max-width: 520px;">
-    <div class="auth-header">
-      <h1>Join HackSphere</h1>
-      <p>Create your account to discover hackathons or host your own.</p>
+<div class="auth-page-container">
+  <!-- 3D Animated Background Ambient Glow -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <div class="auth-card-3d" style="max-width: 580px;">
+    <!-- Brand Badge -->
+    <div class="auth-brand-badge">
+      <div class="brand-icon-3d">
+        <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+        </svg>
+      </div>
+      <span>Start Building &amp; Hosting</span>
     </div>
 
-    <form method="POST" action="{{ url_for('auth_signup') }}" novalidate>
-      <!-- Role Selection -->
-      <label class="form-label">I want to join as a:</label>
-      <div class="role-selector">
-        <label class="role-option {% if not role or role == 'participant' %}selected{% endif %}" id="roleParticipantOpt">
-          <input type="radio" name="role" value="participant" {% if not role or role == 'participant' %}checked{% endif %}>
-          <div class="role-title">Participant</div>
-          <div class="role-desc">Register, build projects & earn verified certificates</div>
-        </label>
+    <div class="auth-header-modern">
+      <h1 class="auth-title">Join HackSphere</h1>
+      <p class="auth-subtitle">Choose your account type to personalize your experience</p>
+    </div>
 
-        <label class="role-option {% if role == 'organizer' %}selected{% endif %}" id="roleOrganizerOpt">
-          <input type="radio" name="role" value="organizer" {% if role == 'organizer' %}checked{% endif %}>
-          <div class="role-title">Organizer / Admin</div>
-          <div class="role-desc">Host hackathons, review submissions & award certificates</div>
-        </label>
+    <form method="POST" action="{{ url_for('auth_signup') }}" novalidate id="signupForm">
+      <!-- Hidden Role Input -->
+      <input type="hidden" name="role" id="selectedRoleInput" value="{{ role or 'participant' }}">
+
+      <!-- 3D Role Selection Cards -->
+      <div class="role-selection-grid">
+        <!-- Participant Card -->
+        <div class="role-3d-card {% if not role or role == 'participant' %}active-role{% endif %}" id="cardParticipant" onclick="selectRole('participant')">
+          <div class="role-check-bubble">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="role-icon-big" style="background: linear-gradient(135deg, #3b82f6, #6366f1);">🚀</div>
+          <div class="role-card-title">Participant</div>
+          <div class="role-card-tagline">Builder &amp; Competitor</div>
+          <p class="role-card-details">
+            Discover hackathons, submit project code &amp; PDF docs, and earn verified participation certificates.
+          </p>
+        </div>
+
+        <!-- Organizer Card -->
+        <div class="role-3d-card {% if role == 'organizer' %}active-role{% endif %}" id="cardOrganizer" onclick="selectRole('organizer')">
+          <div class="role-check-bubble">
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+            </svg>
+          </div>
+          <div class="role-icon-big" style="background: linear-gradient(135deg, #f59e0b, #d97706);">👔</div>
+          <div class="role-card-title">Organiser</div>
+          <div class="role-card-tagline">Host &amp; Convenor</div>
+          <p class="role-card-details">
+            Publish competitions, review submitted projects, approve participants, and issue official certificates.
+          </p>
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="signupName" class="form-label">Full Name</label>
-        <input type="text" id="signupName" name="name" value="{{ name or '' }}" class="form-control" placeholder="e.g. Alex Rivera" required autocomplete="name">
+      <div class="form-group-modern">
+        <label for="signupName" class="form-label-modern">Full Legal Name</label>
+        <div class="input-wrapper-3d">
+          <svg class="input-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+          </svg>
+          <input type="text" id="signupName" name="name" value="{{ name or '' }}" class="form-control-modern" placeholder="e.g. Alex Rivera" required autocomplete="name">
+        </div>
+        <span class="field-hint-text">Your name will be printed on official certificates and credentials.</span>
       </div>
 
-      <div class="form-group">
-        <label for="signupEmail" class="form-label">Email Address</label>
-        <input type="email" id="signupEmail" name="email" value="{{ email or '' }}" class="form-control" placeholder="name@example.com" required autocomplete="email">
-        <span style="font-size: 0.75rem; color: var(--slate-500);">We'll use this for your registrations and official certificates.</span>
+      <div class="form-group-modern">
+        <label for="signupEmail" class="form-label-modern">Email Address</label>
+        <div class="input-wrapper-3d">
+          <svg class="input-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.206"/>
+          </svg>
+          <input type="email" id="signupEmail" name="email" value="{{ email or '' }}" class="form-control-modern" placeholder="name@example.com" required autocomplete="email">
+        </div>
       </div>
 
-      <div class="form-group">
-        <label for="signupPassword" class="form-label">Password</label>
-        <div class="password-input-group">
-          <input type="password" id="signupPassword" name="password" class="form-control" placeholder="At least 8 characters with letters & numbers" required autocomplete="new-password">
-          <button type="button" class="password-toggle-btn" data-target="signupPassword" aria-label="Toggle password visibility">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="form-group-modern">
+        <label for="signupPassword" class="form-label-modern">Password</label>
+        <div class="input-wrapper-3d">
+          <svg class="input-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          </svg>
+          <input type="password" id="signupPassword" name="password" class="form-control-modern" placeholder="At least 8 characters with letters & numbers" required autocomplete="new-password">
+          <button type="button" class="password-eye-btn" onclick="togglePassVisibility('signupPassword', this)" aria-label="Toggle password visibility">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
             </svg>
@@ -51,12 +99,15 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label for="confirmPassword" class="form-label">Confirm Password</label>
-        <div class="password-input-group">
-          <input type="password" id="confirmPassword" name="confirm_password" class="form-control" placeholder="Re-type your password" required autocomplete="new-password">
-          <button type="button" class="password-toggle-btn" data-target="confirmPassword" aria-label="Toggle password visibility">
-            <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="form-group-modern">
+        <label for="confirmPassword" class="form-label-modern">Confirm Password</label>
+        <div class="input-wrapper-3d">
+          <svg class="input-icon" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          <input type="password" id="confirmPassword" name="confirm_password" class="form-control-modern" placeholder="Re-enter your password" required autocomplete="new-password">
+          <button type="button" class="password-eye-btn" onclick="togglePassVisibility('confirmPassword', this)" aria-label="Toggle password visibility">
+            <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
             </svg>
@@ -64,23 +115,154 @@
         </div>
       </div>
 
-      <div style="background: var(--slate-50); border: 1px solid var(--slate-200); border-radius: var(--radius-sm); padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-size: 0.8rem; color: var(--slate-600);">
-        <strong>Password Requirements:</strong>
-        <ul style="margin-left: 1.25rem; margin-top: 0.25rem;">
-          <li>Minimum 8 characters in length</li>
-          <li>Must contain at least one letter (a-z) and one number (0-9)</li>
-          <li>Secured with PBKDF2-HMAC-SHA256 salted hashing</li>
-        </ul>
-      </div>
-
-      <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">
-        Create My Account
+      <button type="submit" class="btn-glow-primary" id="signupSubmitBtn">
+        <span id="signupBtnText">Create Participant Account &rarr;</span>
       </button>
     </form>
 
-    <div style="text-align: center; margin-top: 1.5rem; font-size: 0.9rem; color: var(--slate-600);">
-      Already have an account? <a href="{{ url_for('auth_login') }}" style="font-weight: 600;">Log in here</a>
+    <div class="auth-switch-prompt">
+      Already have an account?
+      <a href="{{ url_for('auth_login') }}" class="auth-link-bold">Sign In here</a>
     </div>
   </div>
 </div>
+
+<script>
+function selectRole(role) {
+  document.getElementById('selectedRoleInput').value = role;
+  const pCard = document.getElementById('cardParticipant');
+  const oCard = document.getElementById('cardOrganizer');
+  const btnText = document.getElementById('signupBtnText');
+
+  if (role === 'participant') {
+    pCard.classList.add('active-role');
+    oCard.classList.remove('active-role');
+    btnText.innerHTML = 'Create Participant Account &rarr;';
+  } else {
+    oCard.classList.add('active-role');
+    pCard.classList.remove('active-role');
+    btnText.innerHTML = 'Create Organiser Account &rarr;';
+  }
+}
+
+function togglePassVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.style.color = '#4f46e5';
+  } else {
+    input.type = 'password';
+    btn.style.color = '#94a3b8';
+  }
+}
+
+// Initialize button text on page load
+document.addEventListener('DOMContentLoaded', function() {
+  const currentRole = document.getElementById('selectedRoleInput').value;
+  selectRole(currentRole || 'participant');
+});
+</script>
+
+<style>
+/* 3D Role Selection Grid */
+.role-selection-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.role-3d-card {
+  position: relative;
+  background: #f8fafc;
+  border: 2px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1.25rem 1rem;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+}
+
+.role-3d-card:hover {
+  border-color: #a5b4fc;
+  background: #ffffff;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.12);
+}
+
+.role-3d-card.active-role {
+  background: #ffffff;
+  border-color: #4f46e5;
+  box-shadow: 0 10px 25px rgba(79, 70, 229, 0.18), 0 0 0 1px #4f46e5;
+  transform: translateY(-2px);
+}
+
+.role-check-bubble {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.role-3d-card.active-role .role-check-bubble {
+  background: #4f46e5;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.4);
+}
+
+.role-icon-big {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.role-card-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--slate-900);
+}
+
+.role-card-tagline {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #4f46e5;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.role-card-details {
+  font-size: 0.78rem;
+  color: var(--slate-600);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.field-hint-text {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--slate-500);
+  margin-top: 0.35rem;
+}
+
+@media (max-width: 540px) {
+  .role-selection-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 {% endblock %}
