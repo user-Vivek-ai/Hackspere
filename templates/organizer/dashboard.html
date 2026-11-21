@@ -157,18 +157,39 @@
             </div>
 
             <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-              <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=sub.hackathon_id) }}?tab=submissions" class="btn btn-sm btn-secondary">
-                Detailed Review
-              </a>
               <form action="{{ url_for('quick_approve_submission', submission_id=sub.id) }}" method="POST" style="margin: 0;">
                 <input type="hidden" name="next" value="dashboard">
-                <button type="submit" class="btn btn-sm btn-success" style="font-weight: 700; padding: 0.45rem 1rem;">
+                <button type="submit" class="btn btn-sm btn-success" style="font-weight: 800; padding: 0.5rem 1.1rem; display: inline-flex; align-items: center; gap: 0.4rem; background: #059669; border-color: #059669; color: #fff;">
                   ⭐ Approve &amp; Award Certificate
                 </button>
               </form>
+              <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=sub.hackathon_id) }}?tab=manage-submissions" class="btn btn-sm btn-secondary">
+                Detailed Review
+              </a>
             </div>
           </div>
         {% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <!-- APPROVAL & CERTIFICATION WORKFLOW GUIDE (ALWAYS VISIBLE WHEN NO PENDING ACTIONS) -->
+  {% if not pending_registrations_list and not pending_submissions_list %}
+    <div class="content-block" style="border: 2px dashed #cbd5e1; background: #f8fafc; padding: 1.5rem; margin-bottom: 2.5rem; border-radius: var(--radius-md);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+            <span style="background: #10b981; color: #fff; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.85rem;">✓</span>
+            <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--slate-900); margin: 0;">
+              Organizer Approval &amp; Certification Workflow
+            </h3>
+          </div>
+          <p style="color: var(--slate-600); font-size: 0.9rem; margin: 0; line-height: 1.6;">
+            <strong>Step 1:</strong> When participants register, click <strong>[✓ Accept Participants]</strong> on your hackathon card below to approve them.<br>
+            <strong>Step 2:</strong> Approved participants submit their GitHub repo, live demo, and PDF documentation.<br>
+            <strong>Step 3:</strong> Review projects and click <strong>[⭐ Approve &amp; Award Certificate]</strong> to immediately generate official verified PDF certificates with scannable QR verification.
+          </p>
+        </div>
       </div>
     </div>
   {% endif %}
@@ -245,18 +266,33 @@
             </div>
           </div>
 
-          <div style="display: flex; gap: 0.6rem; flex-wrap: wrap;">
-            <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=h.id) }}" class="btn btn-primary">
-              <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-              </svg>
-              Manage & Review
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+            <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=h.id) }}?tab=manage-participants" 
+               class="btn btn-sm btn-success" 
+               style="font-weight: 800; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 0.95rem; background: #059669; border-color: #059669; color: #fff;"
+               title="Accept or review participant registrations">
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+              ✓ Accept Participants ({{ h.pending_reg_count }})
             </a>
-            <a href="{{ url_for('hackathon_edit', hackathon_id=h.id) }}" class="btn btn-secondary">
+
+            <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=h.id) }}?tab=manage-submissions" 
+               class="btn btn-sm btn-primary" 
+               style="font-weight: 800; display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.5rem 0.95rem;"
+               title="Review project submissions and award verified certificates">
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+              ⭐ Review Submissions &amp; Certificates ({{ h.pending_count }})
+            </a>
+
+            <a href="{{ url_for('organizer_manage_hackathon', hackathon_id=h.id) }}" class="btn btn-sm btn-secondary" style="padding: 0.5rem 0.85rem;" title="Open full event management hub">
+              Manage Hub
+            </a>
+
+            <a href="{{ url_for('hackathon_edit', hackathon_id=h.id) }}" class="btn btn-sm btn-outline" style="padding: 0.5rem 0.85rem;" title="Edit event dates, rules, or prizes">
               Edit
             </a>
-            <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}" class="btn btn-outline" target="_blank">
-              View Public Page
+
+            <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}" class="btn btn-sm btn-outline" target="_blank" style="padding: 0.5rem 0.85rem;" title="View public page in new tab">
+              Public Page &rarr;
             </a>
           </div>
         </div>

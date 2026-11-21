@@ -43,6 +43,14 @@ def ensure_db_file():
                     sync_conn.execute("INSERT OR IGNORE INTO certificates SELECT * FROM src.certificates;")
                 except Exception:
                     pass
+                try:
+                    sync_conn.execute("INSERT OR IGNORE INTO registrations SELECT * FROM src.registrations;")
+                except Exception:
+                    pass
+                try:
+                    sync_conn.execute("INSERT OR IGNORE INTO submissions SELECT * FROM src.submissions;")
+                except Exception:
+                    pass
                 sync_conn.commit()
                 sync_conn.execute("DETACH DATABASE src;")
                 sync_conn.close()

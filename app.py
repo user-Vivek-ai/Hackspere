@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 import json
+import zlib
 import base64
 import tempfile
 from datetime import datetime, timedelta
@@ -18,7 +19,7 @@ from auth import (
 )
 from certificates import (
     generate_certificate_code, generate_certificate_pdf, CERT_DIR,
-    build_verify_url, decode_verify_token
+    build_verify_url, decode_verify_token, get_canonical_base_url
 )
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -86,27 +87,64 @@ def serve_upload(filename):
     safe_name = os.path.basename(filename)
     return send_from_directory(app.config["UPLOAD_FOLDER"], safe_name)
 
-# Auto-sync published events & registrations across all Vercel micro-containers
+def decode_cookie_data(val):
+    if not val:
+        return None
+    try:
+        padded = val + "=" * (4 - len(val) % 4)
+        raw = base64.urlsafe_b64decode(padded.encode())
+        try:
+            raw = zlib.decompress(raw)
+        except Exception:
+            pass
+        return json.loads(raw.decode("utf-8"))
+    except Exception:
+        return None
+
+def encode_cookie_data(data):
+    try:
+        raw = json.dumps(data, separators=(",", ":")).encode("utf-8")
+        comp = zlib.compress(raw, level=9)
+        return base64.urlsafe_b64encode(comp).decode().rstrip("=")
+    except Exception:
+        return None
+
+# Auto-sync published events, registrations & submissions across all Vercel micro-containers
+# Only active on Vercel serverless (each request may hit a fresh container with empty /tmp DB)
 @app.before_request
 def sync_ephemeral_container_data():
+    if not IS_VERCEL:
+        return  # Skip sync in local/test mode — file-based SQLite already persists
     if request.path.startswith("/static/") or request.path.startswith("/uploads/"):
         return
 
-    cookie_val = request.cookies.get("hacksphere_events")
+    # 1. Sync Hackathons from Cookie & Shared Store
+    cookie_events = request.cookies.get("hacksphere_events")
     all_hacks = list(session.get("created_hackathons", []))
-    if cookie_val:
+    if cookie_events:
+        from_cookie = decode_cookie_data(cookie_events)
+        if isinstance(from_cookie, list):
+            existing_ids = {h.get("id") for h in all_hacks}
+            for h in from_cookie:
+                if h.get("id") not in existing_ids:
+                    all_hacks.append(h)
+
+    # Read from /tmp shared file if available
+    tmp_sync_file = os.path.join(tempfile.gettempdir(), "hacksphere_sync.json")
+    if os.path.exists(tmp_sync_file):
         try:
-            padded = cookie_val + "=" * (4 - len(cookie_val) % 4)
-            from_cookie = json.loads(base64.urlsafe_b64decode(padded.encode()).decode("utf-8"))
-            if isinstance(from_cookie, list):
+            with open(tmp_sync_file, "r", encoding="utf-8") as f:
+                disk_data = json.load(f)
+                disk_hacks = disk_data.get("hackathons", [])
                 existing_ids = {h.get("id") for h in all_hacks}
-                for h in from_cookie:
+                for h in disk_hacks:
                     if h.get("id") not in existing_ids:
                         all_hacks.append(h)
         except Exception:
             pass
 
     if all_hacks:
+        session["created_hackathons"] = all_hacks
         try:
             db = get_db()
             for h in all_hacks:
@@ -153,18 +191,157 @@ def sync_ephemeral_container_data():
                     ))
             db.commit()
         except Exception as e:
-            print("sync_ephemeral_container_data note:", e)
+            print("sync hackathons note:", e)
+
+    # 2. Sync Registrations from Cookie & Shared Store
+    cookie_regs = request.cookies.get("hacksphere_registrations")
+    regs_to_sync = []
+    if cookie_regs:
+        from_cookie = decode_cookie_data(cookie_regs)
+        if isinstance(from_cookie, list):
+            regs_to_sync.extend(from_cookie)
+
+    if os.path.exists(tmp_sync_file):
+        try:
+            with open(tmp_sync_file, "r", encoding="utf-8") as f:
+                disk_data = json.load(f)
+                disk_regs = disk_data.get("registrations", [])
+                existing_pairs = {(r.get("hackathon_id"), r.get("user_id")) for r in regs_to_sync}
+                for r in disk_regs:
+                    if (r.get("hackathon_id"), r.get("user_id")) not in existing_pairs:
+                        regs_to_sync.append(r)
+        except Exception:
+            pass
+
+    if regs_to_sync:
+        try:
+            db = get_db()
+            for r in regs_to_sync:
+                u_id = r.get("user_id", 11)
+                u_name = r.get("user_name", "Vivek Akula")
+                u_email = r.get("user_email", "akulavivek2@gmail.com")
+                h_id = r.get("hackathon_id")
+                if not h_id:
+                    continue
+                db.execute("""
+                    INSERT OR IGNORE INTO users (id, name, email, password_hash, role, status, created_at)
+                    VALUES (?, ?, ?, 'pbkdf2:sha256$auto_sync', 'participant', 'active', datetime('now'))
+                """, (u_id, u_name, u_email))
+                db.execute("""
+                    INSERT INTO registrations (hackathon_id, user_id, user_email, user_name, status, registered_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(hackathon_id, user_id) DO UPDATE SET status = excluded.status
+                """, (h_id, u_id, u_email, u_name, r.get("status", "pending"), r.get("registered_at", "2026-11-21 10:00:00")))
+            db.commit()
+        except Exception as e:
+            print("sync registrations note:", e)
+
+    # 3. Sync Submissions from Cookie & Shared Store
+    cookie_subs = request.cookies.get("hacksphere_submissions")
+    subs_to_sync = []
+    if cookie_subs:
+        from_cookie = decode_cookie_data(cookie_subs)
+        if isinstance(from_cookie, list):
+            subs_to_sync.extend(from_cookie)
+
+    if os.path.exists(tmp_sync_file):
+        try:
+            with open(tmp_sync_file, "r", encoding="utf-8") as f:
+                disk_data = json.load(f)
+                disk_subs = disk_data.get("submissions", [])
+                existing_sub_ids = {s.get("id") for s in subs_to_sync if s.get("id")}
+                for s in disk_subs:
+                    if s.get("id") not in existing_sub_ids:
+                        subs_to_sync.append(s)
+        except Exception:
+            pass
+
+    if subs_to_sync:
+        try:
+            db = get_db()
+            for s in subs_to_sync:
+                sub_id = s.get("id")
+                h_id = s.get("hackathon_id")
+                u_id = s.get("user_id")
+                if not h_id or not u_id:
+                    continue
+                db.execute("""
+                    INSERT OR IGNORE INTO users (id, name, email, password_hash, role, status, created_at)
+                    VALUES (?, 'Participant', 'builder@example.com', 'pbkdf2:sha256$auto_sync', 'participant', 'active', datetime('now'))
+                """, (u_id,))
+                if sub_id:
+                    row = db.execute("SELECT id FROM submissions WHERE id = ?", (sub_id,)).fetchone()
+                    if not row:
+                        db.execute("""
+                            INSERT INTO submissions (id, hackathon_id, user_id, project_name, description, team_members, demo_url, repo_url, file_path, status, submitted_at, reviewed_at, feedback)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            sub_id, h_id, u_id,
+                            s.get("project_name", "Project"),
+                            s.get("description", ""),
+                            s.get("team_members", ""),
+                            s.get("demo_url", ""),
+                            s.get("repo_url", ""),
+                            s.get("file_path", ""),
+                            s.get("status", "under_review"),
+                            s.get("submitted_at", "2026-11-21 11:00:00"),
+                            s.get("reviewed_at"),
+                            s.get("feedback")
+                        ))
+                    else:
+                        db.execute("""
+                            UPDATE submissions SET status = ?, reviewed_at = ?, feedback = ? WHERE id = ?
+                        """, (s.get("status", "under_review"), s.get("reviewed_at"), s.get("feedback"), sub_id))
+            db.commit()
+        except Exception as e:
+            print("sync submissions note:", e)
 
 @app.after_request
 def persist_container_cookies(response):
-    created = session.get("created_hackathons", [])
-    if created:
+    if not IS_VERCEL:
+        return response  # Skip cookie persistence in local/test mode
+    if request.path.startswith("/static/") or request.path.startswith("/uploads/"):
+        return response
+
+    try:
+        db = get_db()
+        # Persist custom hackathons (limit to 5 most recent to keep cookie compact)
+        custom_hacks = db.execute("SELECT id, organizer_id, title, tagline, description, theme, format, location, start_date, end_date, status FROM hackathons WHERE id >= 15 ORDER BY id DESC LIMIT 5").fetchall()
+        h_list = [dict(h) for h in custom_hacks]
+        if h_list:
+            enc = encode_cookie_data(h_list)
+            if enc:
+                response.set_cookie("hacksphere_events", enc, max_age=30*86400, httponly=True, samesite="Lax")
+
+        # Persist custom registrations
+        regs = db.execute("SELECT hackathon_id, user_id, user_email, user_name, status, registered_at FROM registrations WHERE hackathon_id >= 15 OR user_id >= 10 ORDER BY id DESC LIMIT 10").fetchall()
+        r_list = [dict(r) for r in regs]
+        if r_list:
+            enc = encode_cookie_data(r_list)
+            if enc:
+                response.set_cookie("hacksphere_registrations", enc, max_age=30*86400, httponly=True, samesite="Lax")
+
+        # Persist custom submissions
+        subs = db.execute("SELECT id, hackathon_id, user_id, project_name, description, team_members, demo_url, repo_url, file_path, status, submitted_at, reviewed_at, feedback FROM submissions WHERE hackathon_id >= 15 OR user_id >= 10 ORDER BY id DESC LIMIT 10").fetchall()
+        s_list = [dict(s) for s in subs]
+        if s_list:
+            enc = encode_cookie_data(s_list)
+            if enc:
+                response.set_cookie("hacksphere_submissions", enc, max_age=30*86400, httponly=True, samesite="Lax")
+
+        # Save to /tmp sync file as well
+        tmp_sync_file = os.path.join(tempfile.gettempdir(), "hacksphere_sync.json")
         try:
-            raw = json.dumps(created, separators=(",", ":")).encode("utf-8")
-            encoded = base64.urlsafe_b64encode(raw).decode().rstrip("=")
-            response.set_cookie("hacksphere_events", encoded, max_age=30*86400, httponly=True, samesite="Lax")
+            with open(tmp_sync_file, "w", encoding="utf-8") as f:
+                json.dump({
+                    "hackathons": h_list,
+                    "registrations": r_list,
+                    "submissions": s_list
+                }, f, separators=(",", ":"))
         except Exception:
             pass
+    except Exception:
+        pass
     return response
 
 # Context Processor for Templates
@@ -367,7 +544,7 @@ def index():
         LEFT JOIN users u ON h.organizer_id = u.id
         WHERE h.status IN ('ongoing', 'upcoming')
         ORDER BY h.status DESC, h.start_date ASC
-        LIMIT 6;
+        LIMIT 12;
     """).fetchall()
 
     # Metrics
@@ -1017,7 +1194,7 @@ def download_certificate(certificate_code):
         project_name = sub["project_name"] if sub else None
 
         # Build self-contained signed verify URL (works on any Vercel Lambda instance)
-        base_url = request.host_url.rstrip("/")
+        base_url = get_canonical_base_url(request.host_url.rstrip("/"))
         verify_url = build_verify_url(
             base_url,
             cert["certificate_code"], cert["participant_name"], cert["hackathon_title"],
@@ -1702,7 +1879,7 @@ def quick_approve_submission(submission_id):
     event_dates = f"{sub['start_date']} to {sub['end_date']}"
 
     # Build self-contained signed verification URL that works on any Vercel Lambda instance
-    base_url = request.host_url.rstrip("/")
+    base_url = get_canonical_base_url(request.host_url.rstrip("/"))
     verify_url = build_verify_url(
         base_url,
         cert_code, sub["participant_name"], sub["hackathon_title"],
@@ -1806,7 +1983,7 @@ def review_submission(submission_id):
             event_dates = f"{sub['start_date']} to {sub['end_date']}"
 
             # Build self-contained signed verification URL that works on any Lambda instance
-            base_url = request.host_url.rstrip("/")
+            base_url = get_canonical_base_url(request.host_url.rstrip("/"))
             verify_url = build_verify_url(
                 base_url,
                 cert_code, sub["participant_name"], sub["hackathon_title"],
@@ -1901,7 +2078,7 @@ def issue_certificate_manual(submission_id):
         pdf_filename = f"{cert_code}.pdf"
         pdf_path = os.path.join(CERT_DIR, pdf_filename)
         event_dates = f"{sub['start_date']} to {sub['end_date']}"
-        base_url = request.host_url.rstrip("/")
+        base_url = get_canonical_base_url(request.host_url.rstrip("/"))
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Build self-contained signed verification URL that works on any Lambda instance

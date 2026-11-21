@@ -37,6 +37,8 @@ def seed_database():
         ("AI", "ai.organizer@example.com", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
         ("AI", "2403A51258@sru.edu.in", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
         ("Vivek", "vivek@example.com", pw_hash, "organizer", "Hackathon Lead & Community Founder.", None),
+        ("Hackathon", "hackathon@example.com", pw_hash, "organizer", "Official Hackathon Director & Organizer.", None),
+        ("Vivek Akula", "akulavivek2@gmail.com", pw_hash, "participant", "Full-stack engineer & AI developer.", None),
         # Platform Administrator
         ("Platform Administrator", "admin@hacksphere.com", pw_hash, "admin", "HackSphere Platform Master Administrator.", None)
     ]
@@ -346,11 +348,12 @@ def seed_database():
         ))
 
     # 6. Seed Official Certificate for Vivek Akula (DeployX in NextGen Innovators Hackathon)
-    vivek_user = cursor.execute("SELECT id FROM users WHERE email = 'vivek.akula@example.com' OR name = 'Vivek Akula';").fetchone()
+    # Use the already-created akulavivek2@gmail.com user (created in users list above)
+    vivek_user = cursor.execute("SELECT id FROM users WHERE email = 'akulavivek2@gmail.com';").fetchone()
     if not vivek_user:
         cursor.execute("""
             INSERT INTO users (name, email, password_hash, role, status, created_at)
-            VALUES ('Vivek Akula', 'vivek.akula@example.com', ?, 'participant', 'active', datetime('now', '-10 days'));
+            VALUES ('Vivek Akula', 'akulavivek2@gmail.com', ?, 'participant', 'active', datetime('now', '-10 days'));
         """, (pw_hash,))
         vivek_user_id = cursor.lastrowid
     else:
@@ -384,6 +387,58 @@ def seed_database():
             '2026-11-21 12:00:00', 'static/certificates/HS-2026-99D965.pdf'
         );
     """, (ai_hack_id, vivek_user_id, vivek_sub_id))
+
+    # 7. Seed CodeFusion Hackathon 2026 for user 'Hackathon' (hackathon@example.com)
+    hackathon_org = cursor.execute("SELECT id FROM users WHERE email = 'hackathon@example.com';").fetchone()
+    # Use akulavivek2@gmail.com as the participant (already in users list)
+    vivek_participant = cursor.execute("SELECT id FROM users WHERE email = 'akulavivek2@gmail.com';").fetchone()
+    if hackathon_org and vivek_participant:
+        h_org_id = hackathon_org["id"]
+        v_id = vivek_participant["id"]  # akulavivek2@gmail.com user ID
+        cursor.execute("""
+            INSERT OR REPLACE INTO hackathons (
+                id, organizer_id, title, tagline, description, theme, format, location,
+                start_date, end_date, registration_deadline, submission_deadline,
+                team_size_min, team_size_max, eligibility, rules, schedule, judging_criteria,
+                prizes, banner_url, status, created_at, updated_at
+            ) VALUES (
+                16, ?, 'CodeFusion Hackathon 2026',
+                'Practical AI for a better future — build useful, responsible AI solutions for everyday challenges.',
+                'Join global builders and engineers to create production-grade AI applications, autonomous agents, and real-world tools that solve everyday problems.',
+                'AI & Machine Learning', 'online', 'Online',
+                '2026-11-21', '2026-11-22', '2026-11-21', '2026-11-22',
+                1, 4, 'Open to all developers worldwide',
+                '1. Original work created during the event. 2. Must submit GitHub repo, demo, and project documentation.',
+                'Day 1: Kickoff & Building. Day 2: Submissions, Project Evaluation, and Certificate Issuance.',
+                'Innovation (35%), Practical Usability (35%), Code Quality & Architecture (30%)',
+                '1st Place: $5,000 + Verified Credential; 2nd Place: $2,500 + Verified Credential; All Verified Submissions: Official Certificate',
+                'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80',
+                'ongoing', '2026-11-21 08:00:00', '2026-11-21 08:00:00'
+            );
+        """, (h_org_id,))
+
+        # Registration for Vivek Akula (akulavivek2@gmail.com) - Pending Organizer Approval
+        cursor.execute("""
+            INSERT OR REPLACE INTO registrations (
+                hackathon_id, user_id, user_email, user_name, status, registered_at
+            ) VALUES (
+                16, ?, 'akulavivek2@gmail.com', 'Vivek Akula', 'pending', '2026-11-21 09:30:00'
+            );
+        """, (v_id,))
+
+        # Project Submission for Vivek Akula (akulavivek2@gmail.com) - Under Review Awaiting Certificate
+        cursor.execute("""
+            INSERT OR REPLACE INTO submissions (
+                hackathon_id, user_id, project_name, description, team_members,
+                demo_url, repo_url, file_path, status, submitted_at
+            ) VALUES (
+                16, ?, 'CodeFusion AI Agent',
+                'Autonomous multi-model AI agent with real-time verification and automated cloud container sync.',
+                'Vivek Akula',
+                'https://codefusion-ai.vercel.app', 'https://github.com/vivek-akula/codefusion-ai',
+                NULL, 'under_review', '2026-11-21 11:15:00'
+            );
+        """, (v_id,))
 
     db.commit()
     db.close()
