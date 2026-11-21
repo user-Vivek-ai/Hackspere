@@ -147,6 +147,10 @@ def sync_ephemeral_container_data():
         session["created_hackathons"] = all_hacks
         try:
             db = get_db()
+            try:
+                db.execute("PRAGMA foreign_keys = OFF;")
+            except Exception:
+                pass
             for h in all_hacks:
                 h_id = h.get("id")
                 if not h_id:
@@ -190,16 +194,35 @@ def sync_ephemeral_container_data():
                         h.get("updated_at", "2026-11-20 12:00:00")
                     ))
             db.commit()
+            try:
+                db.execute("PRAGMA foreign_keys = ON;")
+            except Exception:
+                pass
         except Exception as e:
             print("sync hackathons note:", e)
 
-    # 2. Sync Registrations from Cookie & Shared Store
+    # 2. Sync Registrations from Cookie, Session & Shared Store
     cookie_regs = request.cookies.get("hacksphere_registrations")
     regs_to_sync = []
     if cookie_regs:
         from_cookie = decode_cookie_data(cookie_regs)
         if isinstance(from_cookie, list):
             regs_to_sync.extend(from_cookie)
+
+    session_regs = session.get("registrations", {})
+    if isinstance(session_regs, dict):
+        for k, v in session_regs.items():
+            if isinstance(v, dict):
+                r_hid = v.get("hackathon_id") or (int(k) if str(k).isdigit() else None)
+                if r_hid:
+                    regs_to_sync.append({
+                        "hackathon_id": r_hid,
+                        "user_id": v.get("user_id") or session.get("user_id", 11),
+                        "user_name": v.get("user_name") or session.get("user_name", "Vivek Akula"),
+                        "user_email": v.get("user_email") or session.get("user_email", "akulavivek2@gmail.com"),
+                        "status": v.get("status", "pending"),
+                        "registered_at": v.get("registered_at", "2026-11-21 10:00:00")
+                    })
 
     if os.path.exists(tmp_sync_file):
         try:
@@ -216,6 +239,10 @@ def sync_ephemeral_container_data():
     if regs_to_sync:
         try:
             db = get_db()
+            try:
+                db.execute("PRAGMA foreign_keys = OFF;")
+            except Exception:
+                pass
             for r in regs_to_sync:
                 u_id = r.get("user_id", 11)
                 u_name = r.get("user_name", "Vivek Akula")
@@ -230,19 +257,49 @@ def sync_ephemeral_container_data():
                 db.execute("""
                     INSERT INTO registrations (hackathon_id, user_id, user_email, user_name, status, registered_at)
                     VALUES (?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(hackathon_id, user_id) DO UPDATE SET status = excluded.status
+                    ON CONFLICT(hackathon_id, user_id) DO UPDATE SET status = CASE
+                        WHEN registrations.status IN ('accepted', 'approved') THEN registrations.status
+                        WHEN excluded.status IN ('accepted', 'approved') THEN excluded.status
+                        ELSE registrations.status
+                    END
                 """, (h_id, u_id, u_email, u_name, r.get("status", "pending"), r.get("registered_at", "2026-11-21 10:00:00")))
             db.commit()
+            try:
+                db.execute("PRAGMA foreign_keys = ON;")
+            except Exception:
+                pass
         except Exception as e:
             print("sync registrations note:", e)
 
-    # 3. Sync Submissions from Cookie & Shared Store
+    # 3. Sync Submissions from Cookie, Session & Shared Store
     cookie_subs = request.cookies.get("hacksphere_submissions")
     subs_to_sync = []
     if cookie_subs:
         from_cookie = decode_cookie_data(cookie_subs)
         if isinstance(from_cookie, list):
             subs_to_sync.extend(from_cookie)
+
+    session_subs = session.get("submissions", {})
+    if isinstance(session_subs, dict):
+        for k, v in session_subs.items():
+            if isinstance(v, dict):
+                s_hid = v.get("hackathon_id") or (int(k) if str(k).isdigit() else None)
+                if s_hid:
+                    subs_to_sync.append({
+                        "id": v.get("id"),
+                        "hackathon_id": s_hid,
+                        "user_id": v.get("user_id") or session.get("user_id", 11),
+                        "project_name": v.get("project_name", "Project"),
+                        "description": v.get("description", ""),
+                        "team_members": v.get("team_members", ""),
+                        "demo_url": v.get("demo_url", ""),
+                        "repo_url": v.get("repo_url", ""),
+                        "file_path": v.get("file_path", ""),
+                        "status": v.get("status", "under_review"),
+                        "submitted_at": v.get("submitted_at", "2026-11-21 11:00:00"),
+                        "reviewed_at": v.get("reviewed_at"),
+                        "feedback": v.get("feedback")
+                    })
 
     if os.path.exists(tmp_sync_file):
         try:
@@ -725,9 +782,27 @@ def hackathon_detail(hackathon_id):
                 "id": 9999,
                 "hackathon_id": hackathon_id,
                 "user_id": user_id,
-                "status": reg_sess.get("status", "accepted"),
+                "status": reg_sess.get("status", "pending"),
                 "registered_at": reg_sess.get("registered_at", "")
             }
+
+        # Check if organizer accepted registration via cookies or session
+        if registration and registration["status"] == "pending":
+            cookie_regs = request.cookies.get("hacksphere_registrations")
+            if cookie_regs:
+                decoded = decode_cookie_data(cookie_regs)
+                if isinstance(decoded, list):
+                    for cr in decoded:
+                        if cr.get("hackathon_id") == hackathon_id and cr.get("status") in ("accepted", "registered"):
+                            if cr.get("user_id") == user_id or cr.get("user_email") == session.get("user_email"):
+                                try:
+                                    db.execute("UPDATE registrations SET status = 'accepted' WHERE hackathon_id = ? AND user_id = ?", (hackathon_id, user_id))
+                                    db.commit()
+                                except Exception:
+                                    pass
+                                registration = dict(registration)
+                                registration["status"] = "accepted"
+                                break
 
         is_registered = bool(registration)
 
@@ -830,13 +905,13 @@ def register_hackathon(hackathon_id):
         "hackathon_id": hackathon_id,
         "status": "pending",
         "registered_at": now_str,
-        "hackathon_title": hackathon["title"]
+        "hackathon_title": hackathon["title"] if isinstance(hackathon, dict) else hackathon["title"]
     }
     session["registrations"] = regs
     session.permanent = True
     session.modified = True
 
-    flash(f"Successfully registered for '{hackathon['title']}'! Your application is Pending organizer approval — you will be notified as soon as the host accepts it.", "success")
+    flash(f"Successfully registered for '{hackathon['title'] if isinstance(hackathon, dict) else hackathon['title']}'! Your application is Pending organizer approval — you will be notified as soon as the host accepts it.", "success")
     next_page = request.args.get("next") or request.form.get("next")
     if next_page == "dashboard":
         return redirect(url_for("participant_dashboard"))
@@ -939,6 +1014,32 @@ def submit_project(hackathon_id):
     if not registration and str(hackathon_id) in session.get("registrations", {}):
         reg_sess = session["registrations"][str(hackathon_id)]
         registration = {"id": 9999, "status": reg_sess.get("status", "pending")}
+
+    # Check if organizer accepted registration via cookies or session
+    if registration and registration["status"] == "pending":
+        if str(hackathon_id) in session.get("registrations", {}):
+            if session["registrations"][str(hackathon_id)].get("status") in ("accepted", "registered"):
+                try:
+                    db.execute("UPDATE registrations SET status = 'accepted' WHERE hackathon_id = ? AND user_id = ?", (hackathon_id, user_id))
+                    db.commit()
+                except Exception:
+                    pass
+                registration = {"id": registration["id"], "status": "accepted"}
+
+        cookie_regs = request.cookies.get("hacksphere_registrations")
+        if cookie_regs and registration["status"] == "pending":
+            decoded = decode_cookie_data(cookie_regs)
+            if isinstance(decoded, list):
+                for cr in decoded:
+                    if cr.get("hackathon_id") == hackathon_id and cr.get("status") in ("accepted", "registered"):
+                        if cr.get("user_id") == user_id or cr.get("user_email") == user_email:
+                            try:
+                                db.execute("UPDATE registrations SET status = 'accepted' WHERE hackathon_id = ? AND user_id = ?", (hackathon_id, user_id))
+                                db.commit()
+                            except Exception:
+                                pass
+                            registration = {"id": registration["id"], "status": "accepted"}
+                            break
 
     if not registration:
         db.close()
@@ -1836,6 +1937,21 @@ def review_registration(hackathon_id, reg_id):
     db.execute("UPDATE registrations SET status = ? WHERE id = ?", (decision, reg_id))
     db.commit()
     db.close()
+
+    # Update in session as well for guaranteed cross-container persistence
+    regs = session.get("registrations", {})
+    if str(hackathon_id) in regs:
+        regs[str(hackathon_id)]["status"] = decision
+    regs[str(reg["hackathon_id"])] = {
+        "hackathon_id": reg["hackathon_id"],
+        "user_id": reg["user_id"],
+        "status": decision,
+        "user_name": reg["user_name"],
+        "user_email": reg["user_email"]
+    }
+    session["registrations"] = regs
+    session.permanent = True
+    session.modified = True
 
     status_label = "Approved & Accepted" if decision == "accepted" else "Rejected"
     flash(f"Registration for {reg['user_name']} has been {status_label}! The participant can now submit their project.", "success")

@@ -426,20 +426,6 @@ def seed_database():
             );
         """, (v_id,))
 
-        # Project Submission for Vivek Akula (akulavivek2@gmail.com) - Under Review Awaiting Certificate
-        cursor.execute("""
-            INSERT OR REPLACE INTO submissions (
-                hackathon_id, user_id, project_name, description, team_members,
-                demo_url, repo_url, file_path, status, submitted_at
-            ) VALUES (
-                16, ?, 'CodeFusion AI Agent',
-                'Autonomous multi-model AI agent with real-time verification and automated cloud container sync.',
-                'Vivek Akula',
-                'https://codefusion-ai.vercel.app', 'https://github.com/vivek-akula/codefusion-ai',
-                NULL, 'under_review', '2026-11-21 11:15:00'
-            );
-        """, (v_id,))
-
     db.commit()
     db.close()
     print("Database successfully seeded with realistic hackathons, users, submissions, and verified certificate!")

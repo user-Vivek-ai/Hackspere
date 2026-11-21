@@ -36,6 +36,10 @@ def ensure_db_file():
             # If DB in /tmp already exists, synchronize base records from src_db
             try:
                 sync_conn = sqlite3.connect(DB_PATH, timeout=15.0)
+                try:
+                    sync_conn.execute("PRAGMA foreign_keys = OFF;")
+                except Exception:
+                    pass
                 sync_conn.execute("ATTACH ? AS src", (src_db,))
                 sync_conn.execute("INSERT OR IGNORE INTO users SELECT * FROM src.users;")
                 sync_conn.execute("INSERT OR IGNORE INTO hackathons SELECT * FROM src.hackathons;")
@@ -53,6 +57,10 @@ def ensure_db_file():
                     pass
                 sync_conn.commit()
                 sync_conn.execute("DETACH DATABASE src;")
+                try:
+                    sync_conn.execute("PRAGMA foreign_keys = ON;")
+                except Exception:
+                    pass
                 sync_conn.close()
             except Exception as e:
                 print("Sync src to /tmp DB error:", e)
