@@ -101,9 +101,7 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if reg.status == 'pending' %}
-                      <span style="font-size: 0.8rem; color: #b45309; font-weight: 600;">Awaiting Approval</span>
-                    {% elif reg.status == 'rejected' %}
+                    {% if reg.status == 'rejected' %}
                       <span style="font-size: 0.8rem; color: #b91c1c; font-weight: 600;">Declined</span>
                     {% elif reg.submission_id %}
                       <a href="{{ url_for('submit_project', hackathon_id=reg.hackathon_id) }}" class="btn btn-sm btn-secondary">

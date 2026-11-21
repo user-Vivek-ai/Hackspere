@@ -64,7 +64,7 @@ def get_current_user():
     """
     Retrieve logged-in user from database or self-heal from cryptographically
     signed session cookie. This guarantees zero random logouts on serverless
-    container cold-starts.
+    container cold-starts (Vercel).
     """
     user_id = session.get("user_id")
     if not user_id:

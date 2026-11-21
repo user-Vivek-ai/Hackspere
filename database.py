@@ -14,11 +14,9 @@ else:
     DB_PATH = os.path.join(os.path.dirname(__file__), "hacksphere.db")
 
 def ensure_db_file():
-    """Ensure database file is copied and writable in Vercel serverless /tmp."""
+    """Ensure database file is copied, synchronized, and writable in Vercel serverless /tmp."""
     if IS_VERCEL:
         src_db = os.path.join(os.path.dirname(__file__), "hacksphere.db")
-        # ONLY copy if DB_PATH does not exist at all or is 0 bytes
-        # NEVER overwrite an existing database in /tmp!
         needs_copy = False
         if not os.path.exists(DB_PATH):
             needs_copy = True
@@ -34,6 +32,22 @@ def ensure_db_file():
                 shutil.copyfile(src_db, DB_PATH)
             except Exception as e:
                 print("DB copy error:", e)
+        elif os.path.exists(DB_PATH) and os.path.exists(src_db):
+            # If DB in /tmp already exists, synchronize base records from src_db
+            try:
+                sync_conn = sqlite3.connect(DB_PATH, timeout=15.0)
+                sync_conn.execute("ATTACH ? AS src", (src_db,))
+                sync_conn.execute("INSERT OR IGNORE INTO users SELECT * FROM src.users;")
+                sync_conn.execute("INSERT OR IGNORE INTO hackathons SELECT * FROM src.hackathons;")
+                try:
+                    sync_conn.execute("INSERT OR IGNORE INTO certificates SELECT * FROM src.certificates;")
+                except Exception:
+                    pass
+                sync_conn.commit()
+                sync_conn.execute("DETACH DATABASE src;")
+                sync_conn.close()
+            except Exception as e:
+                print("Sync src to /tmp DB error:", e)
 
         # Ensure write permissions
         for ext in ["", "-wal", "-shm", "-journal"]:
