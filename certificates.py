@@ -1,12 +1,13 @@
 import os
 import io
+import math
 import secrets
 import tempfile
 from datetime import datetime
 from reportlab.lib.pagesizes import landscape, A4
 from reportlab.lib import colors
 from reportlab.pdfgen import canvas
-from reportlab.graphics.shapes import Drawing, Rect, Circle, String, Group, Polygon
+from reportlab.graphics.shapes import Drawing
 from reportlab.graphics.barcode.qr import QrCodeWidget
 from reportlab.graphics import renderPDF
 
@@ -26,81 +27,85 @@ def generate_certificate_code() -> str:
     random_part = secrets.token_hex(3).upper()
     return f"HS-{year}-{random_part}"
 
-def draw_decorative_corners(c, w, h, margin, color):
-    """Draw stylish geometric corner accents."""
-    c.setStrokeColor(color)
+def draw_sparkle_star(c, cx, cy, radius, color):
+    """Draw a classic 4-pointed luxury sparkle star at (cx, cy)."""
     c.setFillColor(color)
-    size = 28
-    
-    # Top-Left
-    c.lines([
-        (margin - 4, h - margin + 4, margin + size, h - margin + 4),
-        (margin - 4, h - margin + 4, margin - 4, h - margin - size)
-    ])
-    # Top-Right
-    c.lines([
-        (w - margin + 4, h - margin + 4, w - margin - size, h - margin + 4),
-        (w - margin + 4, h - margin + 4, w - margin + 4, h - margin - size)
-    ])
-    # Bottom-Left
-    c.lines([
-        (margin - 4, margin - 4, margin + size, margin - 4),
-        (margin - 4, margin - 4, margin - 4, margin + size)
-    ])
-    # Bottom-Right
-    c.lines([
-        (w - margin + 4, margin - 4, w - margin - size, margin - 4),
-        (w - margin + 4, margin - 4, w - margin + 4, margin + size)
-    ])
-
-def draw_official_seal(c, x, y):
-    """Draw a vector seal badge with star emblem."""
-    # Outer gold rim
-    c.setFillColor(colors.HexColor("#fef3c7"))
-    c.setStrokeColor(colors.HexColor("#d97706"))
-    c.setLineWidth(2.5)
-    c.circle(x, y, 34, fill=1, stroke=1)
-    
-    # Inner navy ring
-    c.setFillColor(colors.HexColor("#0f172a"))
-    c.setStrokeColor(colors.HexColor("#d97706"))
-    c.setLineWidth(1)
-    c.circle(x, y, 27, fill=1, stroke=1)
-    
-    # Center text
-    c.setFillColor(colors.HexColor("#fbbf24"))
-    c.setFont("Helvetica-Bold", 8)
-    c.drawCentredString(x, y + 4, "VERIFIED")
-    c.setFont("Helvetica", 7)
-    c.drawCentredString(x, y - 6, "EXCELLENCE")
-    
-    # Ribbon tail
-    c.setFillColor(colors.HexColor("#d97706"))
+    c.setStrokeColor(color)
     p = c.beginPath()
-    p.moveTo(x - 18, y - 30)
-    p.lineTo(x - 28, y - 56)
-    p.lineTo(x - 16, y - 48)
-    p.lineTo(x - 4, y - 56)
-    p.lineTo(x - 10, y - 30)
+    inner = radius * 0.22
+    p.moveTo(cx, cy + radius)
+    p.curveTo(cx, cy + inner, cx + inner, cy, cx + radius, cy)
+    p.curveTo(cx + inner, cy, cx, cy - inner, cx, cy - radius)
+    p.curveTo(cx - inner, cy, cx, cy - inner, cx - radius, cy)
+    p.curveTo(cx - inner, cy, cx, cy + inner, cx, cy + radius)
     p.close()
     c.drawPath(p, fill=1, stroke=0)
 
+def draw_top_crest(c, cx, cy, color):
+    """Draw a geometric luxury academy crest with hexagon and inner chevron."""
+    c.setStrokeColor(color)
+    c.setLineWidth(2.0)
+    r = 13
+    pts = []
+    for i in range(6):
+        angle = math.pi / 6 + i * (math.pi / 3)
+        pts.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+    p = c.beginPath()
+    p.moveTo(pts[0][0], pts[0][1])
+    for pt in pts[1:]:
+        p.lineTo(pt[0], pt[1])
+    p.close()
+    c.drawPath(p, fill=0, stroke=1)
+
+    # Inner geometric chevron/peak
+    p_inner = c.beginPath()
+    p_inner.moveTo(cx - 5.5, cy - 2.5)
+    p_inner.lineTo(cx, cy + 4)
+    p_inner.lineTo(cx + 5.5, cy - 2.5)
+    c.setLineWidth(1.8)
+    c.drawPath(p_inner, fill=0, stroke=1)
+
+def draw_signature(c, x, y, color):
+    """Draw an authentic, flowing cursive vector signature (Oliver Shaw)."""
+    c.setStrokeColor(color)
+    c.setFillColor(color)
+    c.setLineWidth(1.5)
+    c.setLineCap(1)  # Round cap
+    c.setLineJoin(1) # Round join
+
+    # Capital 'O' and looping body
+    p = c.beginPath()
+    p.moveTo(x + 12, y + 26)
+    p.curveTo(x - 2, y + 24, x - 4, y + 6, x + 8, y + 2)
+    p.curveTo(x + 22, y - 2, x + 24, y + 22, x + 14, y + 26)
+    p.curveTo(x + 8, y + 28, x + 16, y + 15, x + 28, y + 9)
+    # 'l' loop
+    p.curveTo(x + 32, y + 24, x + 35, y + 26, x + 35, y + 15)
+    p.curveTo(x + 35, y + 2, x + 38, y + 2, x + 42, y + 8)
+    # 'i' 'v' 'e' 'r'
+    p.curveTo(x + 46, y + 14, x + 50, y + 2, x + 55, y + 8)
+    p.curveTo(x + 60, y + 14, x + 64, y + 4, x + 70, y + 7)
+    p.curveTo(x + 75, y + 10, x + 80, y + 3, x + 85, y + 6)
+    c.drawPath(p, fill=0, stroke=1)
+
+    # Dot on 'i'
+    c.circle(x + 44, y + 16, 1.2, fill=1, stroke=0)
+
+    # Capital 'S' and 'haw' flourish
     p2 = c.beginPath()
-    p2.moveTo(x + 10, y - 30)
-    p2.lineTo(x + 4, y - 56)
-    p2.lineTo(x + 16, y - 48)
-    p2.lineTo(x + 28, y - 56)
-    p2.lineTo(x + 18, y - 30)
-    p2.close()
-    c.drawPath(p2, fill=1, stroke=0)
+    p2.moveTo(x + 95, y + 24)
+    p2.curveTo(x + 102, y + 28, x + 106, y + 20, x + 98, y + 15)
+    p2.curveTo(x + 90, y + 9, x + 94, y + 2, x + 105, y + 3)
+    p2.curveTo(x + 112, y + 4, x + 118, y + 18, x + 122, y + 24)
+    p2.lineTo(x + 123, y + 2)
+    p2.curveTo(x + 124, y + 12, x + 130, y + 14, x + 134, y + 4)
+    p2.curveTo(x + 138, y + 10, x + 144, y + 4, x + 148, y + 7)
+    p2.curveTo(x + 154, y + 12, x + 160, y + 3, x + 168, y + 14)
+    p2.curveTo(x + 172, y + 10, x + 176, y + 3, x + 195, y + 1)
+    c.drawPath(p2, fill=0, stroke=1)
 
 def draw_qr_code(c, x, y, size, data):
-    """Draw a vector QR code with white backing and border."""
-    c.setFillColor(colors.HexColor("#ffffff"))
-    c.setStrokeColor(colors.HexColor("#cbd5e1"))
-    c.setLineWidth(1)
-    c.roundRect(x - 4, y - 4, size + 8, size + 8, 4, fill=1, stroke=1)
-
+    """Draw a vector QR code with crisp border."""
     qr = QrCodeWidget(data)
     bounds = qr.getBounds()
     w_qr = bounds[2] - bounds[0]
@@ -119,155 +124,214 @@ def generate_certificate_pdf(
     output_path: str = None,
     verify_url: str = None
 ) -> bytes:
-    """Generate a high-resolution vector PDF certificate."""
+    """
+    Generate an official high-resolution vector PDF certificate
+    matching the luxury Brookstone / HackSphere certificate template design:
+    - Pure white/ivory background
+    - Warm bronze/taupe double border with 4 corner star accents
+    - Academy geometric crest & typography
+    - Bold serif 'CERTIFICATE' and flanked '— OF PARTICIPATION —'
+    - Participant name in bold serif with underline
+    - Clean 3-line commendation statement
+    - Authentic cursive signature, scannable QR verification code, and issue date
+    """
     buffer = io.BytesIO()
     target = output_path if output_path else buffer
 
-    w, h = landscape(A4)
+    w, h = landscape(A4) # 841.89 x 595.28 pt
     c = canvas.Canvas(target, pagesize=landscape(A4))
-    
-    # 1. Subtle warm background tint
-    c.setFillColor(colors.HexColor("#fafafa"))
+
+    # Color palette matching template image
+    bronze = colors.HexColor("#8c7355")
+    bronze_light = colors.HexColor("#a38c6d")
+    bronze_tint = colors.HexColor("#fbf9f6")
+    charcoal = colors.HexColor("#18181b")
+    body_color = colors.HexColor("#374151")
+    gray_caption = colors.HexColor("#6b7280")
+
+    # 1. Clean off-white canvas
+    c.setFillColor(colors.HexColor("#ffffff"))
     c.rect(0, 0, w, h, fill=1, stroke=0)
 
-    # 2. Outer decorative border (Dark Slate Navy)
-    c.setStrokeColor(colors.HexColor("#0f172a"))
-    c.setLineWidth(3.5)
-    c.rect(26, 26, w - 52, h - 52, fill=0, stroke=1)
+    # 2. Outer & Inner Double Borders
+    outer_m = 36
+    inner_m = 42
 
-    # 3. Inner accent border (Royal Indigo / Gold)
-    c.setStrokeColor(colors.HexColor("#3b82f6"))
-    c.setLineWidth(1.2)
-    c.rect(34, 34, w - 68, h - 68, fill=0, stroke=1)
+    # Draw outer bronze border line
+    c.setStrokeColor(bronze)
+    c.setLineWidth(1.4)
+    c.rect(outer_m, outer_m, w - 2 * outer_m, h - 2 * outer_m, fill=0, stroke=1)
 
-    # 4. Corner accents
-    draw_decorative_corners(c, w, h, 34, colors.HexColor("#d97706"))
+    # Draw inner bronze border line
+    c.setStrokeColor(bronze)
+    c.setLineWidth(0.7)
+    c.rect(inner_m, inner_m, w - 2 * inner_m, h - 2 * inner_m, fill=0, stroke=1)
 
-    # 5. Top Brand Mark & Title
-    c.setFillColor(colors.HexColor("#3b82f6"))
-    c.setFont("Helvetica-Bold", 14)
-    c.drawCentredString(w / 2, h - 75, "H A C K S P H E R E   P L A T F O R M")
+    # 3. 4 Corner Accent Blocks with Sparkle Stars
+    corner_size = 46
+    corners = [
+        (outer_m, h - outer_m - corner_size),       # Top-Left
+        (w - outer_m - corner_size, h - outer_m - corner_size), # Top-Right
+        (outer_m, outer_m),                         # Bottom-Left
+        (w - outer_m - corner_size, outer_m)        # Bottom-Right
+    ]
 
-    c.setFillColor(colors.HexColor("#0f172a"))
-    c.setFont("Helvetica-Bold", 26)
-    c.drawCentredString(w / 2, h - 110, "CERTIFICATE OF PARTICIPATION")
+    for cx, cy in corners:
+        # Subtle warm tinted background box
+        c.setFillColor(bronze_tint)
+        c.rect(cx, cy, corner_size, corner_size, fill=1, stroke=0)
+        # Re-stroke border around corner block
+        c.setStrokeColor(bronze)
+        c.setLineWidth(0.7)
+        c.rect(cx, cy, corner_size, corner_size, fill=0, stroke=1)
+        # Center 4-pointed sparkle star
+        star_x = cx + corner_size / 2
+        star_y = cy + corner_size / 2
+        draw_sparkle_star(c, star_x, star_y, 8.5, bronze)
 
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica", 11)
-    c.drawCentredString(w / 2, h - 132, "THIS CERTIFICATE IS OFFICIALLY PRESENTED AND CONFERRED UPON")
+    # 4. Top Crest & Institution Brand
+    crest_y = h - 74
+    draw_top_crest(c, w / 2, crest_y, bronze)
 
-    # 6. Participant Name (Highlight)
-    c.setFillColor(colors.HexColor("#1e3a8a"))
-    c.setFont("Helvetica-Bold", 28)
-    c.drawCentredString(w / 2, h - 180, participant_name.strip())
+    c.setFillColor(colors.HexColor("#3f3529"))
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawCentredString(w / 2, h - 94, "H A C K S P H E R E")
 
-    # Underline accent below name
-    c.setStrokeColor(colors.HexColor("#f59e0b"))
-    c.setLineWidth(2)
-    c.line(w / 2 - 140, h - 192, w / 2 + 140, h - 192)
+    c.setFillColor(bronze_light)
+    c.setFont("Helvetica", 6.8)
+    c.drawCentredString(w / 2, h - 105, "ACADEMY & GLOBAL REGISTRY")
 
-    # 7. Achievement Statement
-    c.setFillColor(colors.HexColor("#334155"))
-    c.setFont("Helvetica", 12)
+    # 5. Header Title: "CERTIFICATE"
+    c.setFillColor(charcoal)
+    c.setFont("Times-Bold", 40)
+    c.drawCentredString(w / 2, h - 156, "CERTIFICATE")
+
+    # 6. Subtitle with Flanked Divider Rules: "— OF PARTICIPATION —"
+    sub_text = "O F   P A R T I C I P A T I O N"
+    c.setFont("Helvetica", 9.5)
+    sub_width = c.stringWidth(sub_text, "Helvetica", 9.5)
+
+    c.setFillColor(bronze)
+    c.drawCentredString(w / 2, h - 182, sub_text)
+
+    # Left and right horizontal divider rules
+    c.setStrokeColor(bronze)
+    c.setLineWidth(0.75)
+    rule_len = 55
+    rule_gap = 14
+    c.line(w / 2 - sub_width / 2 - rule_gap - rule_len, h - 179, w / 2 - sub_width / 2 - rule_gap, h - 179)
+    c.line(w / 2 + sub_width / 2 + rule_gap, h - 179, w / 2 + sub_width / 2 + rule_gap + rule_len, h - 179)
+
+    # 7. "PRESENTED TO"
+    c.setFillColor(bronze)
+    c.setFont("Helvetica-Bold", 7.8)
+    c.drawCentredString(w / 2, h - 216, "P R E S E N T E D   T O")
+
+    # 8. Participant Name (Large Serif with Underline)
+    display_name = participant_name.strip().upper()
+    c.setFillColor(charcoal)
+    c.setFont("Times-Bold", 28)
+    c.drawCentredString(w / 2, h - 258, display_name)
+
+    # Dynamic underline
+    name_w = c.stringWidth(display_name, "Times-Bold", 28)
+    line_w = max(name_w + 60, 320)
+    c.setStrokeColor(bronze)
+    c.setLineWidth(0.85)
+    c.line(w / 2 - line_w / 2, h - 270, w / 2 + line_w / 2, h - 270)
+
+    # 9. Commendation / Achievement Statement (3 Elegant Lines)
+    c.setFillColor(body_color)
+    c.setFont("Helvetica", 9.5)
+
+    stmt_line1 = "For successfully designing, building, and submitting the accepted project"
+    c.drawCentredString(w / 2, h - 302, stmt_line1)
+
     if project_name:
-        stmt1 = f"for successfully designing, engineering, and submitting the accepted project"
-        stmt2 = f"'{project_name}'"
-        c.drawCentredString(w / 2, h - 224, stmt1)
-        c.setFillColor(colors.HexColor("#0f172a"))
-        c.setFont("Helvetica-Bold", 13)
-        c.drawCentredString(w / 2, h - 244, stmt2)
-        c.setFillColor(colors.HexColor("#334155"))
-        c.setFont("Helvetica", 12)
-        c.drawCentredString(w / 2, h - 264, f"in the world-class competitive hackathon")
+        stmt_line2 = f"'{project_name.strip()}' in {hackathon_title.strip()}"
     else:
-        c.drawCentredString(w / 2, h - 232, "for successfully building and submitting an accepted project to")
-
-    # 8. Hackathon Title
-    c.setFillColor(colors.HexColor("#0f172a"))
-    c.setFont("Helvetica-Bold", 18)
-    hackathon_y = h - 296 if project_name else h - 265
-    c.drawCentredString(w / 2, hackathon_y, hackathon_title.strip())
-
-    # 9. Official Seal
-    draw_official_seal(c, w / 2, 130)
-
-    # 10. Left Column Details (Dates & Organizer)
-    left_x = 90
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica-Bold", 9)
-    c.drawString(left_x, 155, "EVENT DURATION:")
-    c.setFillColor(colors.HexColor("#0f172a"))
-    c.setFont("Helvetica", 10)
-    c.drawString(left_x, 138, event_dates)
-
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica-Bold", 9)
-    c.drawString(left_x, 115, "HOSTED & ORGANIZED BY:")
-    c.setFillColor(colors.HexColor("#0f172a"))
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(left_x, 98, organizer_name)
-
-    # Organizer Signature Line
-    c.setStrokeColor(colors.HexColor("#94a3b8"))
-    c.setLineWidth(1)
-    c.line(left_x, 78, left_x + 180, 78)
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica-Oblique", 8)
-    c.drawString(left_x, 65, "Authorized Event Lead Signature")
-
-    # 11. Right Column Details (Certificate ID & Registry)
-    right_x = w - 340
-    issue_date = datetime.now().strftime("%B %d, %Y")
+        stmt_line2 = f"in {hackathon_title.strip()}"
     
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica-Bold", 9)
-    c.drawString(right_x, 155, "DATE OF ISSUANCE:")
-    c.setFillColor(colors.HexColor("#0f172a"))
-    c.setFont("Helvetica", 10)
-    c.drawString(right_x, 138, issue_date)
+    c.setFillColor(charcoal)
+    c.setFont("Helvetica-Bold", 10)
+    c.drawCentredString(w / 2, h - 319, stmt_line2)
 
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica-Bold", 9)
-    c.drawString(right_x, 115, "VERIFIED CERTIFICATE ID:")
-    c.setFillColor(colors.HexColor("#1e3a8a"))
-    c.setFont("Courier-Bold", 11)
-    c.drawString(right_x, 98, certificate_code)
+    c.setFillColor(body_color)
+    c.setFont("Helvetica", 9.2)
+    stmt_line3 = f"conducted on {event_dates}. Your dedication, innovation, and technical excellence are highly appreciated."
+    c.drawCentredString(w / 2, h - 336, stmt_line3)
 
-    # Validation Stamp line
-    c.setStrokeColor(colors.HexColor("#94a3b8"))
-    c.setLineWidth(1)
-    c.line(right_x, 78, right_x + 160, 78)
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica-Oblique", 8)
-    c.drawString(right_x, 65, "HackSphere Academic & Dev Registry")
+    # 10. Bottom Section: Left (Signature), Center (Scannable QR Code), Right (Date)
+    
+    # --- Left Column: Organizer Signature ---
+    sig_center_x = 165
+    sig_line_y = 96
+    
+    # Vector Cursive Autograph
+    draw_signature(c, sig_center_x - 95, sig_line_y + 6, charcoal)
+    
+    # Divider Rule
+    c.setStrokeColor(bronze)
+    c.setLineWidth(0.75)
+    c.line(sig_center_x - 75, sig_line_y, sig_center_x + 75, sig_line_y)
+    
+    # Printed Name & Title
+    c.setFillColor(charcoal)
+    c.setFont("Helvetica-Bold", 8.5)
+    c.drawCentredString(sig_center_x, sig_line_y - 12, (organizer_name or "Oliver Shaw").upper())
+    
+    c.setFillColor(gray_caption)
+    c.setFont("Helvetica", 7.2)
+    c.drawCentredString(sig_center_x, sig_line_y - 23, "DIRECTOR & ORGANIZER")
 
-    # 12. QR Code (Scan to Verify Name & Credentials)
-    qr_x = w - 145
-    qr_y = 65
-    qr_size = 68
-    qr_data = verify_url or f"https://hackspere.vercel.app/verify-certificate/{certificate_code}"
+    # --- Center Column: Vector QR Code for Instant Verification ---
+    qr_size = 52
+    qr_x = w / 2 - qr_size / 2
+    qr_y = 70
+    qr_data = verify_url or f"https://hackathon-hub-kappa.vercel.app/verify-certificate/{certificate_code}"
+
+    # Draw QR code
     draw_qr_code(c, qr_x, qr_y, qr_size, qr_data)
 
-    c.setFillColor(colors.HexColor("#1e3a8a"))
-    c.setFont("Helvetica-Bold", 7.5)
-    c.drawCentredString(qr_x + qr_size / 2, qr_y - 14, "SCAN TO VERIFY")
-    c.setFillColor(colors.HexColor("#64748b"))
-    c.setFont("Helvetica", 6.5)
-    c.drawCentredString(qr_x + qr_size / 2, qr_y - 23, "Recipient & Project")
+    # Top Verification Tag
+    c.setFillColor(bronze)
+    c.setFont("Helvetica-Bold", 6.8)
+    c.drawCentredString(w / 2, qr_y + qr_size + 7, "OFFICIAL VERIFICATION")
 
-    # 13. Bottom Security & Verification Footer
-    c.setFillColor(colors.HexColor("#94a3b8"))
-    c.setFont("Helvetica", 8)
-    c.drawCentredString(
-        w / 2, 40,
-        f"Scan QR code or visit https://hackspere.vercel.app/verify-certificate/{certificate_code} to verify authenticity • Issued for Accepted Project"
-    )
+    # Bottom Verification Caption & Certificate ID
+    c.setFillColor(charcoal)
+    c.setFont("Helvetica-Bold", 6.8)
+    c.drawCentredString(w / 2, qr_y - 10, "SCAN TO VERIFY CREDENTIAL")
+
+    c.setFillColor(bronze)
+    c.setFont("Courier-Bold", 7.2)
+    c.drawCentredString(w / 2, qr_y - 20, certificate_code)
+
+    # --- Right Column: Issuance Date ---
+    date_center_x = w - 165
+    date_line_y = 96
+
+    # Formatted Date
+    today_str = datetime.now().strftime("%B %d, %Y").upper()
+    c.setFillColor(charcoal)
+    c.setFont("Helvetica-Bold", 8.8)
+    c.drawCentredString(date_center_x, date_line_y + 12, today_str)
+
+    # Divider Rule
+    c.setStrokeColor(bronze)
+    c.setLineWidth(0.75)
+    c.line(date_center_x - 75, date_line_y, date_center_x + 75, date_line_y)
+
+    # Date Label
+    c.setFillColor(gray_caption)
+    c.setFont("Helvetica", 7.2)
+    c.drawCentredString(date_center_x, date_line_y - 12, "D A T E")
 
     c.showPage()
     c.save()
 
     if output_path:
         return None
-    
+
     buffer.seek(0)
     return buffer.getvalue()

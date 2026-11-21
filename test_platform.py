@@ -380,5 +380,155 @@ class TestHackSpherePlatform(unittest.TestCase):
             self.assertNotIn(b"database is locked", r.data)
             self.assertIn(b"created successfully", r.data)
 
+    def test_10_organizer_isolation_and_complete_workflow(self):
+        """Test strict organizer isolation, pending approval badge, PDF submission, review, and QR verified certificate."""
+        import io
+
+        # 1. New Organizer with 0 hackathons sees empty state and NEVER other hackathons
+        org_email = "independent.org@example.com"
+        org_pass = "OrgPass2026!"
+        self.client.post("/auth/signup", data={
+            "name": "Jane Organizer",
+            "email": org_email,
+            "password": org_pass,
+            "confirm_password": org_pass,
+            "role": "organizer"
+        }, follow_redirects=True)
+
+        res = self.client.get("/organizer/dashboard")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b"You haven't created any hackathons yet", res.data)
+        # Verify other organizers' hackathons are NOT leaked
+        self.assertNotIn(b"Global HealthTech Innovation Challenge", res.data)
+
+        # 2. Organizer hosts a new hackathon
+        create_res = self.client.post("/hackathons/create", data={
+            "title": "Quantum Neural Hackathon 2026",
+            "tagline": "Next-generation quantum computing and neural systems",
+            "description": "A comprehensive competitive hackathon for building quantum neural network algorithms.",
+            "theme": "Quantum AI",
+            "format": "online",
+            "location": "Global Online",
+            "start_date": "2026-12-10",
+            "end_date": "2026-12-15",
+            "registration_deadline": "2026-12-08",
+            "submission_deadline": "2026-12-14",
+            "team_size_min": "1",
+            "team_size_max": "3",
+            "eligibility": "Open to all researchers and engineers worldwide",
+            "rules": "Original work only.",
+            "schedule": "Dec 10: Kickoff, Dec 14: Submissions Due",
+            "judging_criteria": "Algorithmic efficiency and practical applicability",
+            "prizes": "$25,000",
+            "status": "upcoming"
+        }, follow_redirects=True)
+        self.assertEqual(create_res.status_code, 200)
+        self.assertIn(b"Quantum Neural Hackathon 2026", create_res.data)
+
+        # Get the new hackathon id
+        db = get_db()
+        new_hack = db.execute("SELECT id FROM hackathons WHERE title = 'Quantum Neural Hackathon 2026'").fetchone()
+        hack_id = new_hack["id"]
+        db.close()
+
+        # 3. New Participant registers for this hackathon
+        part_email = "quantum.builder@example.com"
+        part_pass = "BuilderPass2026!"
+        self.client.get("/auth/logout")
+        self.client.post("/auth/signup", data={
+            "name": "Alan Turing Jr",
+            "email": part_email,
+            "password": part_pass,
+            "confirm_password": part_pass,
+            "role": "participant"
+        }, follow_redirects=True)
+
+        reg_res = self.client.post(f"/hackathons/{hack_id}/register", data={
+            "team_name": "Team Quantum",
+            "team_members": "Alan Turing Jr",
+            "experience_level": "advanced",
+            "motivation": "Excited to demonstrate hybrid quantum algorithms."
+        }, follow_redirects=True)
+        self.assertEqual(reg_res.status_code, 200)
+
+        # 4. Organizer logs in: Immediately sees Action Required for Pending Registration
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": org_email, "password": org_pass})
+        org_dash = self.client.get("/organizer/dashboard")
+        self.assertEqual(org_dash.status_code, 200)
+        self.assertIn(b"Action Required: Participant Registrations Awaiting Approval", org_dash.data)
+        self.assertIn(b"Alan Turing Jr", org_dash.data)
+
+        # Find registration id
+        db = get_db()
+        reg_row = db.execute("SELECT id FROM registrations WHERE hackathon_id = ? AND user_id = (SELECT id FROM users WHERE email = ?)", (hack_id, part_email)).fetchone()
+        reg_id = reg_row["id"]
+        db.close()
+
+        # 5. Organizer Approves Registration directly from dashboard
+        approve_reg = self.client.post(f"/organizer/hackathons/{hack_id}/registrations/{reg_id}/review", data={
+            "decision": "accepted",
+            "next": "dashboard"
+        }, follow_redirects=True)
+        self.assertEqual(approve_reg.status_code, 200)
+        self.assertIn(b"accepted", approve_reg.data.lower())
+
+        # 6. Participant submits project with PDF document
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": part_email, "password": part_pass})
+        sub_res = self.client.post(f"/hackathons/{hack_id}/submit", data={
+            "project_name": "Quantum Matrix Simulator",
+            "description": "High performance simulation suite using tensor decomposition on GPU nodes.",
+            "team_members": "Alan Turing Jr",
+            "demo_url": "https://quantum-matrix-sim.vercel.app",
+            "repo_url": "https://github.com/alan/quantum-sim",
+            "document": (io.BytesIO(b"%PDF-1.4 Mock PDF Project Architecture Document"), "architecture.pdf")
+        }, content_type="multipart/form-data", follow_redirects=True)
+        self.assertEqual(sub_res.status_code, 200)
+        self.assertIn(b"submitted successfully", sub_res.data.lower())
+
+        # 7. Organizer logs in: Immediately sees Action Required for Project Submission Review & Certificate Approval
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": org_email, "password": org_pass})
+        org_dash2 = self.client.get("/organizer/dashboard")
+        self.assertEqual(org_dash2.status_code, 200)
+        self.assertIn(b"Action Required: Project Submissions Awaiting Review", org_dash2.data)
+        self.assertIn(b"Quantum Matrix Simulator", org_dash2.data)
+
+        # Find submission id
+        db = get_db()
+        sub_row = db.execute("SELECT id FROM submissions WHERE hackathon_id = ? AND project_name = 'Quantum Matrix Simulator'", (hack_id,)).fetchone()
+        sub_id = sub_row["id"]
+        db.close()
+
+        # 8. Organizer 1-Click Quick-Approves Project & Awards Verified Certificate
+        quick_app = self.client.post(f"/organizer/submissions/{sub_id}/quick-approve", follow_redirects=True)
+        self.assertEqual(quick_app.status_code, 200)
+        self.assertIn(b"APPROVED", quick_app.data)
+
+        # 9. Verify Certificate exists and Participant can download it
+        db = get_db()
+        cert_row = db.execute("SELECT * FROM certificates WHERE submission_id = ?", (sub_id,)).fetchone()
+        self.assertIsNotNone(cert_row)
+        cert_code = cert_row["certificate_code"]
+        cert_id = cert_row["id"]
+        db.close()
+
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": part_email, "password": part_pass})
+        download_res = self.client.get(f"/certificates/{cert_code}/download")
+        self.assertEqual(download_res.status_code, 200)
+        self.assertEqual(download_res.mimetype, "application/pdf")
+        self.assertTrue(download_res.data.startswith(b"%PDF-1."))
+        self.assertGreater(len(download_res.data), 1000)
+
+        # 10. Public QR Scan Verification Page
+        verify_res = self.client.get(f"/verify-certificate/{cert_code}")
+        self.assertEqual(verify_res.status_code, 200)
+        self.assertIn(b"Alan Turing Jr", verify_res.data)
+        self.assertIn(b"Quantum Matrix Simulator", verify_res.data)
+        self.assertIn(b"Quantum Neural Hackathon 2026", verify_res.data)
+        self.assertIn(b"Officially Verified", verify_res.data)
+
 if __name__ == "__main__":
     unittest.main()

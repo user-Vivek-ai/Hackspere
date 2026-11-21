@@ -15,8 +15,10 @@ from auth import (
     generate_reset_token, verify_reset_token
 )
 from certificates import generate_certificate_code, generate_certificate_pdf, CERT_DIR
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 app = Flask(__name__)
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.secret_key = os.environ.get("SECRET_KEY", "hacksphere-super-secure-production-key-2026")
 
 @app.teardown_appcontext
@@ -641,6 +643,7 @@ def participant_dashboard():
 # ==========================================
 
 @app.route("/certificates/<certificate_code>/download")
+@app.route("/participant/certificates/<certificate_code>/download")
 @login_required
 def download_certificate(certificate_code):
     user_id = session["user_id"]
@@ -740,12 +743,9 @@ def organizer_dashboard():
     search_q = request.args.get("q", "").strip()
     status_filter = request.args.get("status", "").strip()
 
-    # Check if this organizer has any created hackathons
-    own_count = db.execute("SELECT COUNT(*) as c FROM hackathons WHERE organizer_id = ?", (organizer_id,)).fetchone()["c"]
-
-    # If this organizer account owns hackathons, show theirs; otherwise show all platform hackathons
-    where_clause = "WHERE h.organizer_id = ?" if own_count > 0 else "WHERE 1=1"
-    params = [organizer_id] if own_count > 0 else []
+    # Organizers should ONLY see their own created hackathons and activities
+    where_clause = "WHERE h.organizer_id = ?"
+    params = [organizer_id]
 
     sql = f"""
         SELECT h.*,
@@ -770,43 +770,25 @@ def organizer_dashboard():
 
     hackathons = db.execute(sql, params).fetchall()
 
-    # Pending participant registrations that need organizer approval
-    if own_count > 0:
-        pending_registrations_list = db.execute("""
-            SELECT r.*, h.title as hackathon_title, h.id as hackathon_id
-            FROM registrations r
-            JOIN hackathons h ON r.hackathon_id = h.id
-            WHERE h.organizer_id = ? AND r.status = 'pending'
-            ORDER BY r.registered_at DESC
-        """, (organizer_id,)).fetchall()
+    # Pending participant registrations that need this organizer's approval
+    pending_registrations_list = db.execute("""
+        SELECT r.*, h.title as hackathon_title, h.id as hackathon_id
+        FROM registrations r
+        JOIN hackathons h ON r.hackathon_id = h.id
+        WHERE h.organizer_id = ? AND r.status = 'pending'
+        ORDER BY r.registered_at DESC
+    """, (organizer_id,)).fetchall()
 
-        pending_submissions_list = db.execute("""
-            SELECT s.*, h.title as hackathon_title, h.id as hackathon_id,
-                   u.name as submitter_name, u.email as submitter_email
-            FROM submissions s
-            JOIN hackathons h ON s.hackathon_id = h.id
-            JOIN users u ON s.user_id = u.id
-            WHERE h.organizer_id = ? AND s.status IN ('pending', 'under_review')
-            ORDER BY s.submitted_at DESC
-        """, (organizer_id,)).fetchall()
-    else:
-        pending_registrations_list = db.execute("""
-            SELECT r.*, h.title as hackathon_title, h.id as hackathon_id
-            FROM registrations r
-            JOIN hackathons h ON r.hackathon_id = h.id
-            WHERE r.status = 'pending'
-            ORDER BY r.registered_at DESC
-        """).fetchall()
-
-        pending_submissions_list = db.execute("""
-            SELECT s.*, h.title as hackathon_title, h.id as hackathon_id,
-                   u.name as submitter_name, u.email as submitter_email
-            FROM submissions s
-            JOIN hackathons h ON s.hackathon_id = h.id
-            JOIN users u ON s.user_id = u.id
-            WHERE s.status IN ('pending', 'under_review')
-            ORDER BY s.submitted_at DESC
-        """).fetchall()
+    # Pending project submissions that need this organizer's review & certification
+    pending_submissions_list = db.execute("""
+        SELECT s.*, h.title as hackathon_title, h.id as hackathon_id,
+               u.name as submitter_name, u.email as submitter_email
+        FROM submissions s
+        JOIN hackathons h ON s.hackathon_id = h.id
+        JOIN users u ON s.user_id = u.id
+        WHERE h.organizer_id = ? AND s.status IN ('pending', 'under_review')
+        ORDER BY s.submitted_at DESC
+    """, (organizer_id,)).fetchall()
 
     stats = {
         "total_hackathons": len(hackathons),
