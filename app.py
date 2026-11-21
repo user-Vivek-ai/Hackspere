@@ -1,6 +1,8 @@
 import os
 import re
 import uuid
+import json
+import base64
 import tempfile
 from datetime import datetime, timedelta
 from flask import (
@@ -83,6 +85,87 @@ def is_valid_url(url):
 def serve_upload(filename):
     safe_name = os.path.basename(filename)
     return send_from_directory(app.config["UPLOAD_FOLDER"], safe_name)
+
+# Auto-sync published events & registrations across all Vercel micro-containers
+@app.before_request
+def sync_ephemeral_container_data():
+    if request.path.startswith("/static/") or request.path.startswith("/uploads/"):
+        return
+
+    cookie_val = request.cookies.get("hacksphere_events")
+    all_hacks = list(session.get("created_hackathons", []))
+    if cookie_val:
+        try:
+            padded = cookie_val + "=" * (4 - len(cookie_val) % 4)
+            from_cookie = json.loads(base64.urlsafe_b64decode(padded.encode()).decode("utf-8"))
+            if isinstance(from_cookie, list):
+                existing_ids = {h.get("id") for h in all_hacks}
+                for h in from_cookie:
+                    if h.get("id") not in existing_ids:
+                        all_hacks.append(h)
+        except Exception:
+            pass
+
+    if all_hacks:
+        try:
+            db = get_db()
+            for h in all_hacks:
+                h_id = h.get("id")
+                if not h_id:
+                    continue
+                row = db.execute("SELECT id FROM hackathons WHERE id = ?", (h_id,)).fetchone()
+                if not row:
+                    org_id = h.get("organizer_id", 4)
+                    db.execute("""
+                        INSERT OR IGNORE INTO users (id, name, email, password_hash, role, status, created_at)
+                        VALUES (?, 'Hackathon Host', 'host@hacksphere.com', 'pbkdf2:sha256$auto_sync', 'organizer', 'active', datetime('now'))
+                    """, (org_id,))
+                    db.execute("""
+                        INSERT OR IGNORE INTO hackathons (
+                            id, organizer_id, title, tagline, description, theme, format, location,
+                            start_date, end_date, registration_deadline, submission_deadline,
+                            team_size_min, team_size_max, eligibility, rules, schedule,
+                            judging_criteria, prizes, banner_url, status, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        h_id, org_id,
+                        h.get("title", "Hackathon"),
+                        h.get("tagline", ""),
+                        h.get("description", "Hackathon description"),
+                        h.get("theme", "AI"),
+                        h.get("format", "online"),
+                        h.get("location", "Online"),
+                        h.get("start_date", "2026-11-20"),
+                        h.get("end_date", "2026-12-20"),
+                        h.get("registration_deadline", "2026-11-20"),
+                        h.get("submission_deadline", "2026-12-20"),
+                        h.get("team_size_min", 1),
+                        h.get("team_size_max", 4),
+                        h.get("eligibility", "Open to all developers"),
+                        h.get("rules", ""),
+                        h.get("schedule", ""),
+                        h.get("judging_criteria", ""),
+                        h.get("prizes", ""),
+                        h.get("banner_url", "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80"),
+                        h.get("status", "upcoming"),
+                        h.get("created_at", "2026-11-20 12:00:00"),
+                        h.get("updated_at", "2026-11-20 12:00:00")
+                    ))
+            db.commit()
+        except Exception as e:
+            print("sync_ephemeral_container_data note:", e)
+
+@app.after_request
+def persist_container_cookies(response):
+    created = session.get("created_hackathons", [])
+    if created:
+        try:
+            raw = json.dumps(created, separators=(",", ":")).encode("utf-8")
+            encoded = base64.urlsafe_b64encode(raw).decode().rstrip("=")
+            response.set_cookie("hacksphere_events", encoded, max_age=30*86400, httponly=True, samesite="Lax")
+        except Exception:
+            pass
+    return response
 
 # Context Processor for Templates
 @app.context_processor
@@ -204,7 +287,17 @@ def auth_login():
 
 @app.route("/auth/logout")
 def auth_logout():
+    saved_hacks = session.get("created_hackathons", [])
+    saved_regs = session.get("registrations", {})
+    saved_subs = session.get("submissions", {})
     session.clear()
+    if saved_hacks:
+        session["created_hackathons"] = saved_hacks
+    if saved_regs:
+        session["registrations"] = saved_regs
+    if saved_subs:
+        session["submissions"] = saved_subs
+    session.permanent = True
     flash("You have been safely logged out.", "info")
     return redirect(url_for("index"))
 
@@ -268,10 +361,10 @@ def index():
     db = get_db()
     # Featured / ongoing hackathons
     featured = db.execute("""
-        SELECT h.*, u.name as organizer_name,
+        SELECT h.*, COALESCE(u.name, 'Hackathon Host') as organizer_name,
                (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id) as participant_count
         FROM hackathons h
-        JOIN users u ON h.organizer_id = u.id
+        LEFT JOIN users u ON h.organizer_id = u.id
         WHERE h.status IN ('ongoing', 'upcoming')
         ORDER BY h.status DESC, h.start_date ASC
         LIMIT 6;
@@ -296,10 +389,10 @@ def hackathons_list():
     sort_by = request.args.get("sort", "date_asc")
 
     sql = """
-        SELECT h.*, u.name as organizer_name,
+        SELECT h.*, COALESCE(u.name, 'Hackathon Host') as organizer_name,
                (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id) as participant_count
         FROM hackathons h
-        JOIN users u ON h.organizer_id = u.id
+        LEFT JOIN users u ON h.organizer_id = u.id
         WHERE 1=1
     """
     params = []
@@ -360,11 +453,62 @@ def hackathon_detail(hackathon_id):
         WHERE h.id = ?
     """, (hackathon_id,)).fetchone()
 
-    # If not found in DB, check if it was created in organizer session
-    if not hackathon and session.get("created_hackathons"):
-        for h in session.get("created_hackathons", []):
+    # If not found in DB, check session and cookie for created hackathons
+    if not hackathon:
+        all_created = list(session.get("created_hackathons", []))
+        cookie_val = request.cookies.get("hacksphere_events")
+        if cookie_val:
+            try:
+                padded = cookie_val + "=" * (4 - len(cookie_val) % 4)
+                from_cookie = json.loads(base64.urlsafe_b64decode(padded.encode()).decode("utf-8"))
+                if isinstance(from_cookie, list):
+                    all_created.extend(from_cookie)
+            except Exception:
+                pass
+
+        for h in all_created:
             if h.get("id") == hackathon_id:
                 hackathon = h
+                try:
+                    org_id = h.get("organizer_id", 4)
+                    db.execute("""
+                        INSERT OR IGNORE INTO users (id, name, email, password_hash, role, status, created_at)
+                        VALUES (?, 'Hackathon Host', 'host@hacksphere.com', 'pbkdf2:sha256$auto_sync', 'organizer', 'active', datetime('now'))
+                    """, (org_id,))
+                    db.execute("""
+                        INSERT OR IGNORE INTO hackathons (
+                            id, organizer_id, title, tagline, description, theme, format, location,
+                            start_date, end_date, registration_deadline, submission_deadline,
+                            team_size_min, team_size_max, eligibility, rules, schedule,
+                            judging_criteria, prizes, banner_url, status, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        hackathon_id, org_id,
+                        h.get("title", "Hackathon"),
+                        h.get("tagline", ""),
+                        h.get("description", "Hackathon description"),
+                        h.get("theme", "AI"),
+                        h.get("format", "online"),
+                        h.get("location", "Online"),
+                        h.get("start_date", "2026-11-20"),
+                        h.get("end_date", "2026-12-20"),
+                        h.get("registration_deadline", "2026-11-20"),
+                        h.get("submission_deadline", "2026-12-20"),
+                        h.get("team_size_min", 1),
+                        h.get("team_size_max", 4),
+                        h.get("eligibility", "Open to all developers"),
+                        h.get("rules", ""),
+                        h.get("schedule", ""),
+                        h.get("judging_criteria", ""),
+                        h.get("prizes", ""),
+                        h.get("banner_url", "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80"),
+                        h.get("status", "upcoming"),
+                        h.get("created_at", "2026-11-20 12:00:00"),
+                        h.get("updated_at", "2026-11-20 12:00:00")
+                    ))
+                    db.commit()
+                except Exception as e:
+                    print("Detail restore note:", e)
                 break
 
     if not hackathon:
@@ -537,11 +681,63 @@ def submit_project(hackathon_id):
     db = get_db()
     hackathon = db.execute("SELECT * FROM hackathons WHERE id = ?", (hackathon_id,)).fetchone()
     
-    # Check session created hackathons if missing from DB
-    if not hackathon and session.get("created_hackathons"):
-        for h in session.get("created_hackathons", []):
+    # Check session and cookie for created hackathons if missing from DB
+    if not hackathon:
+        all_created = list(session.get("created_hackathons", []))
+        cookie_val = request.cookies.get("hacksphere_events")
+        if cookie_val:
+            try:
+                padded = cookie_val + "=" * (4 - len(cookie_val) % 4)
+                from_cookie = json.loads(base64.urlsafe_b64decode(padded.encode()).decode("utf-8"))
+                if isinstance(from_cookie, list):
+                    all_created.extend(from_cookie)
+            except Exception:
+                pass
+
+        for h in all_created:
             if h.get("id") == hackathon_id:
                 hackathon = h
+                # Restore to DB on this container
+                try:
+                    org_id = h.get("organizer_id", 4)
+                    db.execute("""
+                        INSERT OR IGNORE INTO users (id, name, email, password_hash, role, status, created_at)
+                        VALUES (?, 'Hackathon Host', 'host@hacksphere.com', 'pbkdf2:sha256$auto_sync', 'organizer', 'active', datetime('now'))
+                    """, (org_id,))
+                    db.execute("""
+                        INSERT OR IGNORE INTO hackathons (
+                            id, organizer_id, title, tagline, description, theme, format, location,
+                            start_date, end_date, registration_deadline, submission_deadline,
+                            team_size_min, team_size_max, eligibility, rules, schedule,
+                            judging_criteria, prizes, banner_url, status, created_at, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        hackathon_id, org_id,
+                        h.get("title", "Hackathon"),
+                        h.get("tagline", ""),
+                        h.get("description", "Hackathon description"),
+                        h.get("theme", "AI"),
+                        h.get("format", "online"),
+                        h.get("location", "Online"),
+                        h.get("start_date", "2026-11-20"),
+                        h.get("end_date", "2026-12-20"),
+                        h.get("registration_deadline", "2026-11-20"),
+                        h.get("submission_deadline", "2026-12-20"),
+                        h.get("team_size_min", 1),
+                        h.get("team_size_max", 4),
+                        h.get("eligibility", "Open to all developers"),
+                        h.get("rules", ""),
+                        h.get("schedule", ""),
+                        h.get("judging_criteria", ""),
+                        h.get("prizes", ""),
+                        h.get("banner_url", "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&auto=format&fit=crop&q=80"),
+                        h.get("status", "upcoming"),
+                        h.get("created_at", "2026-11-20 12:00:00"),
+                        h.get("updated_at", "2026-11-20 12:00:00")
+                    ))
+                    db.commit()
+                except Exception as e:
+                    print("Restore hackathon note:", e)
                 break
 
     if not hackathon:
