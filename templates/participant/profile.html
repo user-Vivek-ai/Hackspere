@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile &amp; Builder Portfolio - HackSphere{% endblock %}
+
+{% block content %}
+<div class="container container-narrow" style="padding-top: 3rem; padding-bottom: 5rem;">
+
+  <!-- Breadcrumb -->
+  <div style="margin-bottom: 1.5rem; font-size: 0.9rem; color: var(--slate-500);">
+    <a href="{{ url_for('participant_dashboard') }}">Dashboard</a> &rarr; <span>Builder Profile</span>
+  </div>
+
+  <div class="content-block" style="padding: 2.25rem; margin-bottom: 2rem; border-top: 4px solid var(--primary);">
+    <div style="display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 2rem;">
+      <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #3b82f6, #6366f1); color: #fff; font-size: 2rem; font-weight: 800; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.35);">
+        {{ user.name[0].upper() }}
+      </div>
+      <div>
+        <h1 style="font-size: 1.85rem; font-weight: 900; color: var(--slate-900); margin: 0 0 0.25rem 0;">
+          {{ user.name }}
+        </h1>
+        <div style="font-size: 0.95rem; color: var(--slate-500);">
+          {{ user.email }} &bull; <span class="user-role-tag role-{{ user.role }}">{{ user.role }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Profile Form -->
+    <form action="{{ url_for('participant_profile') }}" method="POST">
+      <div class="form-group">
+        <label for="name" class="form-label">Full Name</label>
+        <input type="text" id="name" name="name" class="form-control" value="{{ user.name }}" required>
+        <div class="form-hint">This name will be displayed on all official hackathon participation certificates.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="email" class="form-label">Email Address</label>
+        <input type="email" id="email" class="form-control" value="{{ user.email }}" disabled style="background: #f1f5f9; cursor: not-allowed;">
+        <div class="form-hint">Email address is permanently bound to your account and verification history.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="bio" class="form-label">Developer Bio &amp; Technical Interests</label>
+        <textarea id="bio" name="bio" class="form-control" rows="3" placeholder="Tell organizers about your skills, tech stack, and background...">{{ user.bio or '' }}</textarea>
+      </div>
+
+      <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+        <button type="submit" class="btn btn-primary">Save Profile Changes</button>
+        <a href="{{ url_for('participant_dashboard') }}" class="btn btn-secondary">Back to Dashboard</a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Participation History Section -->
+  <div class="content-block" style="padding: 2rem;">
+    <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--slate-900); margin-bottom: 0.5rem;">
+      Your Hackathon Participation History
+    </h2>
+    <p style="color: var(--slate-500); font-size: 0.9rem; margin-bottom: 1.5rem;">
+      Verified record of all hackathons entered, projects submitted, and certificates awarded.
+    </p>
+
+    {% if history %}
+      <div style="display: flex; flex-direction: column; gap: 1rem;">
+        {% for h in history %}
+          <div style="background: #f8fafc; border: 1px solid var(--slate-200); border-radius: var(--radius-md); padding: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <div style="font-size: 0.75rem; color: var(--slate-500); font-weight: 700; text-transform: uppercase;">
+                {{ h.format }} EVENT
+              </div>
+              <h3 style="font-size: 1.15rem; font-weight: 800; color: var(--slate-900); margin: 0.2rem 0;">
+                {{ h.hackathon_title }}
+              </h3>
+              <div style="font-size: 0.85rem; color: var(--slate-600);">
+                {% if h.project_name %}
+                  Project: <strong>"{{ h.project_name }}"</strong>
+                  {% if h.sub_status in ('approved', 'accepted') %}
+                    &bull; <span style="color: #16a34a; font-weight: 700;">Accepted</span>
+                  {% elif h.sub_status == 'rejected' %}
+                    &bull; <span style="color: #dc2626; font-weight: 600;">Not Selected</span>
+                  {% else %}
+                    &bull; <span style="color: #d97706; font-weight: 600;">Under Review</span>
+                  {% endif %}
+                {% else %}
+                  Registered on {{ h.registered_at.split()[0] if h.registered_at else 'Recent' }}
+                {% endif %}
+              </div>
+            </div>
+
+            <div>
+              {% if h.certificate_code %}
+                <a href="{{ url_for('verify_certificate', certificate_code=h.certificate_code) }}" target="_blank" class="btn btn-sm btn-outline">
+                  📜 View Verified Credential &rarr;
+                </a>
+              {% else %}
+                <span class="badge badge-info">Registration: {{ h.reg_status }}</span>
+              {% endif %}
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div style="text-align: center; padding: 2rem; color: var(--slate-500);">
+        <p>No hackathons registered yet. Explore active competitions and start building!</p>
+        <a href="{{ url_for('hackathons_list') }}" class="btn btn-sm btn-primary">Browse Hackathons</a>
+      </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

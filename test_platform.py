@@ -530,5 +530,64 @@ class TestHackSpherePlatform(unittest.TestCase):
         self.assertIn(b"Quantum Neural Hackathon 2026", verify_res.data)
         self.assertIn(b"OFFICIALLY VERIFIED", verify_res.data)
 
+    def test_11_admin_dashboard_and_participant_profile(self):
+        """Test Administrator Control Center, moderation actions, and participant profile portfolio."""
+        # 1. Non-admin cannot access admin console
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "alex.dev@example.com", "password": "Password123!"})
+        res = self.client.get("/admin", follow_redirects=True)
+        self.assertIn(b"Access denied", res.data)
+
+        # 2. Admin logs in
+        self.client.get("/auth/logout")
+        admin_login = self.client.post("/auth/login", data={
+            "email": "admin@hacksphere.com",
+            "password": "Password123!"
+        }, follow_redirects=True)
+        self.assertEqual(admin_login.status_code, 200)
+        self.assertIn(b"Admin Control Center", admin_login.data)
+        self.assertIn(b"PLATFORM MASTER ADMINISTRATOR", admin_login.data)
+
+        # 3. View Admin Dashboard KPIs and user list
+        admin_dash = self.client.get("/admin/dashboard")
+        self.assertEqual(admin_dash.status_code, 200)
+        self.assertIn(b"Total Users", admin_dash.data)
+        self.assertIn(b"Published Hackathons", admin_dash.data)
+        self.assertIn(b"Verified Credentials Audit Log", admin_dash.data)
+        self.assertIn(b"Alex Rivera", admin_dash.data)
+        self.assertIn(b"Sarah Chen", admin_dash.data)
+
+        # 4. Admin moderates user status (Suspend and Unsuspend)
+        db = get_db()
+        target_user = db.execute("SELECT id FROM users WHERE email = 'marcus.vance@example.com'").fetchone()
+        target_id = target_user["id"]
+        db.close()
+
+        suspend_res = self.client.post(f"/admin/users/{target_id}/status", data={"status": "suspended"}, follow_redirects=True)
+        self.assertEqual(suspend_res.status_code, 200)
+        self.assertIn(b"suspended", suspend_res.data.lower())
+
+        unsuspend_res = self.client.post(f"/admin/users/{target_id}/status", data={"status": "active"}, follow_redirects=True)
+        self.assertEqual(unsuspend_res.status_code, 200)
+        self.assertIn(b"active", unsuspend_res.data.lower())
+
+        # 5. Participant Profile view and update
+        self.client.get("/auth/logout")
+        self.client.post("/auth/login", data={"email": "alex.dev@example.com", "password": "Password123!"})
+        profile_get = self.client.get("/participant/profile")
+        self.assertEqual(profile_get.status_code, 200)
+        self.assertIn(b"Builder Profile", profile_get.data)
+        self.assertIn(b"Alex Rivera", profile_get.data)
+        self.assertIn(b"Participation History", profile_get.data)
+
+        # Update profile bio
+        profile_post = self.client.post("/participant/profile", data={
+            "name": "Alex Rivera",
+            "bio": "Lead Full-Stack AI Engineer building neural distributed systems."
+        }, follow_redirects=True)
+        self.assertEqual(profile_post.status_code, 200)
+        self.assertIn(b"updated successfully", profile_post.data)
+        self.assertIn(b"Lead Full-Stack AI Engineer", profile_post.data)
+
 if __name__ == "__main__":
     unittest.main()

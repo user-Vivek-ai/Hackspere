@@ -24,11 +24,14 @@
       <ul class="nav-links">
         <li><a href="{{ url_for('hackathons_list') }}">Explore Hackathons</a></li>
         {% if current_user %}
-          {% if current_user.role == 'organizer' %}
+          {% if current_user.role == 'admin' %}
+            <li><a href="{{ url_for('admin_dashboard') }}" style="color: #8b5cf6; font-weight: 700;">🛡️ Admin Center</a></li>
+          {% elif current_user.role == 'organizer' %}
             <li><a href="{{ url_for('organizer_dashboard') }}">Organizer Hub</a></li>
             <li><a href="{{ url_for('hackathon_create') }}" class="btn btn-sm btn-outline">+ Host Hackathon</a></li>
           {% else %}
             <li><a href="{{ url_for('participant_dashboard') }}">My Dashboard</a></li>
+            <li><a href="{{ url_for('participant_profile') }}">Profile</a></li>
           {% endif %}
         {% else %}
           <li><a href="{{ url_for('hackathons_list') }}">Browse Events</a></li>
@@ -44,7 +47,9 @@
             <span>{{ current_user.name.split()[0] }}</span>
             <span class="user-role-tag role-{{ current_user.role }}">{{ current_user.role }}</span>
           </div>
-          {% if current_user.role == 'organizer' %}
+          {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-secondary" style="border-color: #8b5cf6; color: #6d28d9;">Admin Console</a>
+          {% elif current_user.role == 'organizer' %}
             <a href="{{ url_for('organizer_dashboard') }}" class="btn btn-sm btn-secondary">Dashboard</a>
           {% else %}
             <a href="{{ url_for('participant_dashboard') }}" class="btn btn-sm btn-secondary">My Events</a>
@@ -67,11 +72,14 @@
     <div class="mobile-menu" id="mobileMenu">
       <a href="{{ url_for('hackathons_list') }}">Explore Hackathons</a>
       {% if current_user %}
-        {% if current_user.role == 'organizer' %}
+        {% if current_user.role == 'admin' %}
+          <a href="{{ url_for('admin_dashboard') }}" style="color: #8b5cf6; font-weight: 700;">🛡️ Admin Center</a>
+        {% elif current_user.role == 'organizer' %}
           <a href="{{ url_for('organizer_dashboard') }}">Organizer Hub</a>
           <a href="{{ url_for('hackathon_create') }}">Host Hackathon</a>
         {% else %}
           <a href="{{ url_for('participant_dashboard') }}">My Dashboard</a>
+          <a href="{{ url_for('participant_profile') }}">Profile &amp; Portfolio</a>
         {% endif %}
         <a href="{{ url_for('auth_logout') }}">Log Out ({{ current_user.name }})</a>
       {% else %}

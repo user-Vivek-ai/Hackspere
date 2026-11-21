@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}Administrator Control Center - HackSphere{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: #fff; padding: 2.5rem 0;">
+  <div class="container">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+      <div>
+        <div style="display: inline-flex; align-items: center; gap: 0.5rem; background: rgba(139, 92, 246, 0.2); border: 1px solid rgba(167, 139, 250, 0.4); padding: 0.25rem 0.75rem; border-radius: 999px; font-size: 0.8rem; font-weight: 700; color: #c4b5fd; margin-bottom: 0.75rem;">
+          🛡️ PLATFORM MASTER ADMINISTRATOR
+        </div>
+        <h1 style="font-size: 2.2rem; font-weight: 900; color: #fff; margin: 0; letter-spacing: -0.02em;">
+          Admin Control Center
+        </h1>
+        <p style="color: #cbd5e1; margin-top: 0.4rem; font-size: 0.95rem; max-width: 650px;">
+          Global platform oversight: manage organizers and participants, moderate hackathons, review project submissions, and audit verified cryptographic certificates.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 0.75rem;">
+        <a href="{{ url_for('hackathons_list') }}" class="btn btn-outline" style="border-color: rgba(255,255,255,0.3); color: #fff;">
+          🌐 Public Site
+        </a>
+        <a href="{{ url_for('hackathon_create') }}" class="btn btn-primary" style="background: #8b5cf6; border-color: #7c3aed;">
+          + Create Hackathon
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container" style="padding-top: 2rem; padding-bottom: 4rem;">
+
+  <!-- Executive Platform KPI Cards -->
+  <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 2.5rem;">
+    <div class="stat-card" style="border-left: 4px solid #6366f1;">
+      <div class="stat-number" style="color: #4f46e5;">{{ stats.total_users }}</div>
+      <div class="stat-label">Total Users</div>
+      <div style="font-size: 0.75rem; color: var(--slate-500); margin-top: 0.25rem;">
+        {{ stats.total_organizers }} Organizers &bull; {{ stats.total_participants }} Builders
+      </div>
+    </div>
+
+    <div class="stat-card" style="border-left: 4px solid #3b82f6;">
+      <div class="stat-number" style="color: #2563eb;">{{ stats.total_hackathons }}</div>
+      <div class="stat-label">Published Hackathons</div>
+      <div style="font-size: 0.75rem; color: #16a34a; font-weight: 600; margin-top: 0.25rem;">
+        {{ stats.active_hackathons }} Active / Upcoming
+      </div>
+    </div>
+
+    <div class="stat-card" style="border-left: 4px solid #f59e0b;">
+      <div class="stat-number" style="color: #d97706;">{{ stats.total_submissions }}</div>
+      <div class="stat-label">Project Submissions</div>
+      <div style="font-size: 0.75rem; color: var(--slate-500); margin-top: 0.25rem;">
+        {{ stats.approved_submissions }} Accepted / Awarded
+      </div>
+    </div>
+
+    <div class="stat-card" style="border-left: 4px solid #10b981;">
+      <div class="stat-number" style="color: #059669;">{{ stats.total_certificates }}</div>
+      <div class="stat-label">Certificates Issued</div>
+      <div style="font-size: 0.75rem; color: #059669; font-weight: 600; margin-top: 0.25rem;">
+        100% Cryptographically Verified
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div style="display: flex; gap: 0.5rem; border-bottom: 2px solid var(--slate-200); margin-bottom: 2rem; overflow-x: auto; padding-bottom: 0.2rem;">
+    <button class="btn btn-sm admin-tab-btn active" onclick="switchAdminTab('users', this)">
+      👥 Users &amp; Organizers ({{ users_list|length }})
+    </button>
+    <button class="btn btn-sm admin-tab-btn" onclick="switchAdminTab('hackathons', this)">
+      🏆 Hackathon Oversight ({{ hackathons_list|length }})
+    </button>
+    <button class="btn btn-sm admin-tab-btn" onclick="switchAdminTab('certificates', this)">
+      📜 Certificate Registry ({{ certificates_list|length }})
+    </button>
+  </div>
+
+  <!-- TAB 1: USERS & ORGANIZERS -->
+  <div id="tab-users" class="admin-tab-pane">
+    <div class="content-block" style="padding: 1.5rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--slate-900); margin: 0;">User Accounts Management</h2>
+          <p style="color: var(--slate-500); font-size: 0.9rem; margin: 0.2rem 0 0 0;">
+            Review participant and organizer accounts, verify organizers, or suspend policy-violating accounts.
+          </p>
+        </div>
+
+        <form action="{{ url_for('admin_dashboard') }}" method="GET" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <input type="text" name="q" value="{{ user_q }}" placeholder="Search by name or email..." class="form-control" style="width: 220px; padding: 0.45rem 0.75rem; font-size: 0.85rem;">
+          <select name="role" class="form-control" style="width: 140px; padding: 0.45rem 0.75rem; font-size: 0.85rem;" onchange="this.form.submit()">
+            <option value="all" {% if user_role_filter == 'all' or not user_role_filter %}selected{% endif %}>All Roles</option>
+            <option value="organizer" {% if user_role_filter == 'organizer' %}selected{% endif %}>Organizers</option>
+            <option value="participant" {% if user_role_filter == 'participant' %}selected{% endif %}>Participants</option>
+            <option value="admin" {% if user_role_filter == 'admin' %}selected{% endif %}>Admins</option>
+          </select>
+          <button type="submit" class="btn btn-sm btn-primary">Filter</button>
+          {% if user_q or user_role_filter %}
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-sm btn-outline">Reset</a>
+          {% endif %}
+        </form>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; font-size: 0.9rem;">
+          <thead>
+            <tr>
+              <th>User Name &amp; Email</th>
+              <th>Role</th>
+              <th>Status</th>
+              <th>Platform Activity</th>
+              <th>Joined Date</th>
+              <th style="text-align: right;">Moderation Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in users_list %}
+              <tr>
+                <td>
+                  <div style="font-weight: 700; color: var(--slate-900);">{{ u.name }}</div>
+                  <div style="font-size: 0.8rem; color: var(--slate-500); font-family: monospace;">{{ u.email }}</div>
+                </td>
+                <td>
+                  <span class="user-role-tag role-{{ u.role }}" style="font-size: 0.7rem;">{{ u.role }}</span>
+                </td>
+                <td>
+                  {% if u.status == 'suspended' %}
+                    <span class="badge badge-danger">Suspended</span>
+                  {% elif u.status == 'pending_approval' %}
+                    <span class="badge badge-warning">Pending Approval</span>
+                  {% else %}
+                    <span class="badge badge-success">Active</span>
+                  {% endif %}
+                </td>
+                <td style="font-size: 0.85rem; color: var(--slate-600);">
+                  {% if u.role == 'organizer' %}
+                    <strong>{{ u.hosted_count }}</strong> hackathons hosted
+                  {% elif u.role == 'participant' %}
+                    <strong>{{ u.reg_count }}</strong> registered &bull; <strong>{{ u.sub_count }}</strong> submitted &bull; <strong>{{ u.cert_count }}</strong> certs
+                  {% else %}
+                    Platform Master
+                  {% endif %}
+                </td>
+                <td style="font-size: 0.8rem; color: var(--slate-500);">
+                  {{ u.created_at.split()[0] if u.created_at else 'Active' }}
+                </td>
+                <td style="text-align: right;">
+                  {% if u.role != 'admin' %}
+                    <div style="display: inline-flex; gap: 0.35rem;">
+                      {% if u.status == 'suspended' %}
+                        <form action="{{ url_for('admin_update_user_status', user_id=u.id) }}" method="POST" style="display: inline; margin: 0;">
+                          <input type="hidden" name="status" value="active">
+                          <button type="submit" class="btn btn-sm btn-success" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
+                            ✓ Unsuspend
+                          </button>
+                        </form>
+                      {% else %}
+                        {% if u.role == 'organizer' and u.status != 'active' %}
+                          <form action="{{ url_for('admin_update_user_status', user_id=u.id) }}" method="POST" style="display: inline; margin: 0;">
+                            <input type="hidden" name="status" value="active">
+                            <button type="submit" class="btn btn-sm btn-success" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
+                              ✓ Approve
+                            </button>
+                          </form>
+                        {% endif %}
+                        <form action="{{ url_for('admin_update_user_status', user_id=u.id) }}" method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Suspend this account? User will be locked out until reactivated.');">
+                          <input type="hidden" name="status" value="suspended">
+                          <button type="submit" class="btn btn-sm btn-outline" style="padding: 0.3rem 0.6rem; font-size: 0.75rem; color: #dc2626; border-color: #fca5a5;">
+                            ⏸ Suspend
+                          </button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  {% else %}
+                    <span style="font-size: 0.75rem; color: #8b5cf6; font-weight: 700;">Protected Master</span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: HACKATHONS OVERSIGHT -->
+  <div id="tab-hackathons" class="admin-tab-pane" style="display: none;">
+    <div class="content-block" style="padding: 1.5rem; margin-bottom: 2rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+        <div>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--slate-900); margin: 0;">Hackathons Catalog Oversight</h2>
+          <p style="color: var(--slate-500); font-size: 0.9rem; margin: 0.2rem 0 0 0;">
+            Monitor all published competitions. Remove inappropriate, duplicate, or policy-violating listings.
+          </p>
+        </div>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; font-size: 0.9rem;">
+          <thead>
+            <tr>
+              <th>Hackathon Event</th>
+              <th>Host Organiser</th>
+              <th>Dates &amp; Mode</th>
+              <th>Registrations</th>
+              <th>Submissions</th>
+              <th>Certificates</th>
+              <th style="text-align: right;">Moderation</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in hackathons_list %}
+              <tr>
+                <td>
+                  <div style="font-weight: 700; color: var(--slate-900);">
+                    <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}" target="_blank">{{ h.title }}</a>
+                  </div>
+                  <div style="font-size: 0.8rem; color: var(--slate-500);">{{ h.theme }}</div>
+                </td>
+                <td>
+                  <div style="font-weight: 600; color: var(--slate-800);">{{ h.organizer_name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-500);">{{ h.organizer_email }}</div>
+                </td>
+                <td>
+                  <div><span class="badge badge-{{ h.format }}">{{ h.format }}</span> <span class="badge badge-{{ h.status }}">{{ h.status }}</span></div>
+                  <div style="font-size: 0.75rem; color: var(--slate-500); margin-top: 0.2rem;">{{ h.start_date }} to {{ h.end_date }}</div>
+                </td>
+                <td><strong>{{ h.reg_count }}</strong> participants</td>
+                <td><strong>{{ h.sub_count }}</strong> projects</td>
+                <td><span style="font-weight: 700; color: #16a34a;">{{ h.cert_count }}</span> issued</td>
+                <td style="text-align: right;">
+                  <div style="display: inline-flex; gap: 0.4rem;">
+                    <a href="{{ url_for('hackathon_detail', hackathon_id=h.id) }}" class="btn btn-sm btn-secondary" target="_blank" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
+                      View
+                    </a>
+                    <form action="{{ url_for('admin_remove_hackathon', hackathon_id=h.id) }}" method="POST" style="display: inline; margin: 0;" onsubmit="return confirm('Remove hackathon \'{{ h.title }}\' from HackSphere? This will delete associated submissions and registrations.');">
+                      <button type="submit" class="btn btn-sm btn-danger" style="padding: 0.3rem 0.6rem; font-size: 0.75rem;">
+                        🗑 Remove
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: CERTIFICATES AUDIT -->
+  <div id="tab-certificates" class="admin-tab-pane" style="display: none;">
+    <div class="content-block" style="padding: 1.5rem; margin-bottom: 2rem;">
+      <div style="margin-bottom: 1.5rem;">
+        <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--slate-900); margin: 0;">Verified Credentials Audit Log</h2>
+        <p style="color: var(--slate-500); font-size: 0.9rem; margin: 0.2rem 0 0 0;">
+          All participation and achievement certificates generated across the HackSphere platform with tamper-proof cryptographic signatures.
+        </p>
+      </div>
+
+      <div style="overflow-x: auto;">
+        <table class="table" style="width: 100%; font-size: 0.9rem;">
+          <thead>
+            <tr>
+              <th>Certificate ID</th>
+              <th>Certified Recipient</th>
+              <th>Hackathon Event</th>
+              <th>Accepted Project</th>
+              <th>Organiser</th>
+              <th>Issued At</th>
+              <th style="text-align: right;">Verification</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in certificates_list %}
+              <tr>
+                <td>
+                  <code style="font-weight: 800; color: #1e40af; background: #eff6ff; padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid #bfdbfe;">
+                    {{ c.certificate_code }}
+                  </code>
+                </td>
+                <td>
+                  <div style="font-weight: 700; color: var(--slate-900);">{{ c.participant_name }}</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-500);">{{ c.recipient_email }}</div>
+                </td>
+                <td style="font-weight: 600; color: var(--slate-800);">{{ c.hackathon_title }}</td>
+                <td style="color: var(--slate-700);">"{{ c.project_name }}"</td>
+                <td style="color: var(--slate-600);">{{ c.organizer_name }}</td>
+                <td style="font-size: 0.8rem; color: var(--slate-500);">{{ c.issued_at.split()[0] if c.issued_at else 'Recent' }}</td>
+                <td style="text-align: right;">
+                  <a href="{{ url_for('verify_certificate', certificate_code=c.certificate_code) }}" target="_blank" class="btn btn-sm btn-primary" style="padding: 0.3rem 0.65rem; font-size: 0.75rem;">
+                    🔍 Verify QR Record
+                  </a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function switchAdminTab(tabName, btn) {
+  document.querySelectorAll('.admin-tab-pane').forEach(function(pane) {
+    pane.style.display = 'none';
+  });
+  document.querySelectorAll('.admin-tab-btn').forEach(function(b) {
+    b.classList.remove('active', 'btn-primary');
+    b.classList.add('btn-secondary');
+  });
+
+  var activePane = document.getElementById('tab-' + tabName);
+  if (activePane) {
+    activePane.style.display = 'block';
+  }
+  btn.classList.remove('btn-secondary');
+  btn.classList.add('active', 'btn-primary');
+}
+</script>
+
+<style>
+.admin-tab-btn.active {
+  background: var(--primary) !important;
+  color: #fff !important;
+  font-weight: 700;
+}
+</style>
+{% endblock %}

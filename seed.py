@@ -36,7 +36,9 @@ def seed_database():
         ("AI", "ai@example.com", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
         ("AI", "ai.organizer@example.com", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
         ("AI", "2403A51258@sru.edu.in", pw_hash, "organizer", "Organizer & AI Hackathon Lead.", None),
-        ("Vivek", "vivek@example.com", pw_hash, "organizer", "Hackathon Lead & Community Founder.", None)
+        ("Vivek", "vivek@example.com", pw_hash, "organizer", "Hackathon Lead & Community Founder.", None),
+        # Platform Administrator
+        ("Platform Administrator", "admin@hacksphere.com", pw_hash, "admin", "HackSphere Platform Master Administrator.", None)
     ]
 
     cursor.executemany("""

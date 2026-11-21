@@ -211,12 +211,19 @@ def init_db():
         name TEXT NOT NULL,
         email TEXT UNIQUE NOT NULL,
         password_hash TEXT NOT NULL,
-        role TEXT NOT NULL DEFAULT 'participant', -- 'participant' or 'organizer'
+        role TEXT NOT NULL DEFAULT 'participant', -- 'participant', 'organizer', 'admin'
+        status TEXT NOT NULL DEFAULT 'active',    -- 'active', 'pending_approval', 'suspended'
         bio TEXT,
         avatar_url TEXT,
         created_at TEXT NOT NULL
     );
     """)
+
+    # Ensure status column exists in existing DBs
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active';")
+    except Exception:
+        pass
 
     # Hackathons Table
     cursor.execute("""

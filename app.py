@@ -2,7 +2,7 @@ import os
 import re
 import uuid
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import (
     Flask, render_template, request, redirect, url_for,
     flash, session, send_file, send_from_directory, abort, jsonify
@@ -23,6 +23,12 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 app.secret_key = os.environ.get("SECRET_KEY", "hacksphere-super-secure-production-key-2026")
+
+# Persistent 30-Day Session Configuration (Never drop or logout on tab switch)
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=30)
+app.config["SESSION_COOKIE_NAME"] = "hacksphere_session_v2"
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 @app.teardown_appcontext
 def teardown_db(exception=None):
@@ -131,14 +137,17 @@ def auth_signup():
         new_user_id = cursor.lastrowid
         db.close()
 
-        # Log user in
+        # Log user in with persistent 30-day session
+        session.permanent = True
         session["user_id"] = new_user_id
         session["user_name"] = name
         session["user_email"] = email
         session["user_role"] = role
 
         flash(f"Welcome to HackSphere, {name}! Your {role.capitalize()} account has been created.", "success")
-        if role == "organizer":
+        if role == "admin":
+            return redirect(url_for("admin_dashboard"))
+        elif role == "organizer":
             return redirect(url_for("organizer_dashboard"))
         return redirect(url_for("participant_dashboard"))
 
@@ -167,15 +176,19 @@ def auth_login():
             flash("Invalid email or password. Please try again.", "danger")
             return render_template("auth/login.html", email=email, next_url=next_url)
 
+        # Set 30-day persistent session
+        session.permanent = True
         session["user_id"] = user["id"]
         session["user_name"] = user["name"]
         session["user_email"] = user["email"]
         session["user_role"] = user["role"]
 
         flash(f"Welcome back, {user['name']}!", "success")
-        if next_url and not next_url.startswith("/auth"):
+        if next_url and not next_url.startswith("/auth") and next_url != url_for("index"):
             return redirect(next_url)
-        if user["role"] == "organizer":
+        if user["role"] == "admin":
+            return redirect(url_for("admin_dashboard"))
+        elif user["role"] == "organizer":
             return redirect(url_for("organizer_dashboard"))
         return redirect(url_for("participant_dashboard"))
 
@@ -641,6 +654,39 @@ def participant_dashboard():
         available_hackathons=available_hackathons
     )
 
+@app.route("/participant/profile", methods=["GET", "POST"])
+@app.route("/profile", methods=["GET", "POST"])
+@login_required
+def participant_profile():
+    user_id = session["user_id"]
+    db = get_db()
+
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        bio = request.form.get("bio", "").strip()
+        if len(name) >= 2:
+            db.execute("UPDATE users SET name = ?, bio = ? WHERE id = ?", (name, bio, user_id))
+            db.commit()
+            session["user_name"] = name
+            flash("Your profile has been updated successfully!", "success")
+        else:
+            flash("Name must be at least 2 characters.", "danger")
+
+    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    history = db.execute("""
+        SELECT r.status as reg_status, r.registered_at, h.title as hackathon_title, h.format,
+               s.project_name, s.status as sub_status, c.certificate_code
+        FROM registrations r
+        JOIN hackathons h ON r.hackathon_id = h.id
+        LEFT JOIN submissions s ON s.hackathon_id = h.id AND s.user_id = r.user_id
+        LEFT JOIN certificates c ON c.submission_id = s.id
+        WHERE r.user_id = ?
+        ORDER BY r.registered_at DESC
+    """, (user_id,)).fetchall()
+    db.close()
+
+    return render_template("participant/profile.html", user=user, history=history)
+
 # ==========================================
 # CERTIFICATES DOWNLOAD & VERIFICATION
 # ==========================================
@@ -761,13 +807,158 @@ def verify_certificate(certificate_code):
     )
 
 # ==========================================
+# ADMINISTRATOR DASHBOARD & CONTROL CENTER
+# ==========================================
+
+@app.route("/admin")
+@app.route("/admin/dashboard")
+@login_required
+@role_required("admin")
+def admin_dashboard():
+    db = get_db()
+
+    user_role_filter = request.args.get("role", "").strip()
+    user_q = request.args.get("q", "").strip()
+
+    # Platform Metrics
+    total_users = db.execute("SELECT COUNT(*) as c FROM users").fetchone()["c"]
+    total_organizers = db.execute("SELECT COUNT(*) as c FROM users WHERE role = 'organizer'").fetchone()["c"]
+    total_participants = db.execute("SELECT COUNT(*) as c FROM users WHERE role = 'participant'").fetchone()["c"]
+    total_hackathons = db.execute("SELECT COUNT(*) as c FROM hackathons").fetchone()["c"]
+    active_hackathons = db.execute("SELECT COUNT(*) as c FROM hackathons WHERE status IN ('upcoming', 'ongoing')").fetchone()["c"]
+    total_submissions = db.execute("SELECT COUNT(*) as c FROM submissions").fetchone()["c"]
+    approved_submissions = db.execute("SELECT COUNT(*) as c FROM submissions WHERE status IN ('accepted', 'approved')").fetchone()["c"]
+    total_certificates = db.execute("SELECT COUNT(*) as c FROM certificates").fetchone()["c"]
+
+    stats = {
+        "total_users": total_users,
+        "total_organizers": total_organizers,
+        "total_participants": total_participants,
+        "total_hackathons": total_hackathons,
+        "active_hackathons": active_hackathons,
+        "total_submissions": total_submissions,
+        "approved_submissions": approved_submissions,
+        "total_certificates": total_certificates
+    }
+
+    # Users Query
+    users_sql = """
+        SELECT u.*,
+               (SELECT COUNT(*) FROM hackathons WHERE organizer_id = u.id) as hosted_count,
+               (SELECT COUNT(*) FROM registrations WHERE user_id = u.id) as reg_count,
+               (SELECT COUNT(*) FROM submissions WHERE user_id = u.id) as sub_count,
+               (SELECT COUNT(*) FROM certificates WHERE user_id = u.id) as cert_count
+        FROM users u
+        WHERE 1=1
+    """
+    users_params = []
+    if user_role_filter and user_role_filter != "all":
+        users_sql += " AND u.role = ?"
+        users_params.append(user_role_filter)
+    if user_q:
+        users_sql += " AND (u.name LIKE ? OR u.email LIKE ?)"
+        wildcard = f"%{user_q}%"
+        users_params.extend([wildcard, wildcard])
+    users_sql += " ORDER BY u.created_at DESC"
+    users_list = db.execute(users_sql, users_params).fetchall()
+
+    # Hackathons Query
+    hackathons_list = db.execute("""
+        SELECT h.*, u.name as organizer_name, u.email as organizer_email,
+               (SELECT COUNT(*) FROM registrations WHERE hackathon_id = h.id) as reg_count,
+               (SELECT COUNT(*) FROM submissions WHERE hackathon_id = h.id) as sub_count,
+               (SELECT COUNT(*) FROM certificates WHERE hackathon_id = h.id) as cert_count
+        FROM hackathons h
+        JOIN users u ON h.organizer_id = u.id
+        ORDER BY h.created_at DESC
+    """).fetchall()
+
+    # Certificates Query
+    certificates_list = db.execute("""
+        SELECT c.*, s.project_name, h.title as hackathon_title, u.email as recipient_email
+        FROM certificates c
+        JOIN submissions s ON c.submission_id = s.id
+        JOIN hackathons h ON c.hackathon_id = h.id
+        JOIN users u ON c.user_id = u.id
+        ORDER BY c.issued_at DESC
+        LIMIT 100
+    """).fetchall()
+
+    db.close()
+    return render_template(
+        "admin/dashboard.html",
+        stats=stats,
+        users_list=users_list,
+        hackathons_list=hackathons_list,
+        certificates_list=certificates_list,
+        user_role_filter=user_role_filter,
+        user_q=user_q
+    )
+
+@app.route("/admin/users/<int:user_id>/status", methods=["POST"])
+@login_required
+@role_required("admin")
+def admin_update_user_status(user_id):
+    new_status = request.form.get("status", "active").strip()
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user:
+        db.close()
+        flash("User not found.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
+    if user["role"] == "admin":
+        db.close()
+        flash("Cannot modify status of master administrator.", "danger")
+        return redirect(url_for("admin_dashboard"))
+
+    db.execute("UPDATE users SET status = ? WHERE id = ?", (new_status, user_id))
+    db.commit()
+    db.close()
+    flash(f"Account for {user['name']} has been set to '{new_status}'.", "success")
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/hackathons/<int:hackathon_id>/remove", methods=["POST"])
+@login_required
+@role_required("admin")
+def admin_remove_hackathon(hackathon_id):
+    db = get_db()
+    hack = db.execute("SELECT * FROM hackathons WHERE id = ?", (hackathon_id,)).fetchone()
+    if not hack:
+        db.close()
+        flash("Hackathon not found.", "warning")
+        return redirect(url_for("admin_dashboard"))
+
+    db.execute("DELETE FROM hackathons WHERE id = ?", (hackathon_id,))
+    db.commit()
+    db.close()
+    flash(f"Hackathon '{hack['title']}' has been removed by platform administrator.", "warning")
+    return redirect(url_for("admin_dashboard"))
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+@role_required("admin")
+def admin_delete_user(user_id):
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user or user["role"] == "admin":
+        db.close()
+        flash("Cannot delete this user.", "danger")
+        return redirect(url_for("admin_dashboard"))
+
+    db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    db.commit()
+    db.close()
+    flash(f"User account {user['email']} has been deleted.", "info")
+    return redirect(url_for("admin_dashboard"))
+
+# ==========================================
 # ORGANIZER ROUTES
 # ==========================================
 
 @app.route("/organizer/dashboard")
 @app.route("/organizer")
-@app.route("/admin")
-@app.route("/admin/dashboard")
+@app.route("/organizer/hub")
 @login_required
 @role_required("organizer")
 def organizer_dashboard():

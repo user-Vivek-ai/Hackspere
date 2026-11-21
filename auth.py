@@ -66,7 +66,17 @@ def get_current_user():
     if not user_id:
         return None
     db = get_db()
-    user = db.execute("SELECT id, name, email, role, bio, avatar_url, created_at FROM users WHERE id = ?", (user_id,)).fetchone()
+    try:
+        user = db.execute(
+            "SELECT id, name, email, role, status, bio, avatar_url, created_at FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+    except Exception:
+        # Fallback if status column is pending migration
+        user = db.execute(
+            "SELECT id, name, email, role, bio, avatar_url, created_at FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
     db.close()
     return user
 
@@ -78,6 +88,21 @@ def login_required(f):
                 return jsonify({"error": "Authentication required. Please log in."}), 401
             flash("Please log in to access this page.", "warning")
             return redirect(url_for("auth_login", next=request.path))
+
+        # Validate that the user still exists in DB
+        user = get_current_user()
+        if not user:
+            session.clear()
+            if request.is_json or request.path.startswith("/api/"):
+                return jsonify({"error": "Session expired. Please log in again."}), 401
+            flash("Your session has expired. Please sign in to continue.", "info")
+            return redirect(url_for("auth_login", next=request.path))
+
+        if dict(user).get("status") == "suspended":
+            session.clear()
+            flash("Your account has been suspended by a platform administrator.", "danger")
+            return redirect(url_for("auth_login"))
+
         return f(*args, **kwargs)
     return decorated_function
 
@@ -90,17 +115,25 @@ def role_required(required_role):
                     return jsonify({"error": "Authentication required."}), 401
                 flash("Please log in to access this page.", "warning")
                 return redirect(url_for("auth_login", next=request.path))
-                
-            user_role = session.get("user_role")
-            if user_role != required_role:
+
+            user = get_current_user()
+            if not user:
+                session.clear()
+                flash("Your session has expired. Please log in again.", "info")
+                return redirect(url_for("auth_login", next=request.path))
+
+            user_role = user["role"]
+            # Admin accounts have full elevated privileges to all management sections
+            if user_role != required_role and user_role != "admin":
                 if request.is_json or request.path.startswith("/api/"):
                     return jsonify({"error": f"Forbidden: This action requires the '{required_role}' role."}), 403
                 flash(f"Access denied. This area is reserved for {required_role}s.", "danger")
-                # Redirect to appropriate dashboard instead of index
                 if user_role == "organizer":
                     return redirect(url_for("organizer_dashboard"))
                 elif user_role == "participant":
                     return redirect(url_for("participant_dashboard"))
+                elif user_role == "admin":
+                    return redirect(url_for("admin_dashboard"))
                 return redirect(url_for("index"))
             return f(*args, **kwargs)
         return decorated_function
