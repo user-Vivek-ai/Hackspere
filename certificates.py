@@ -24,8 +24,26 @@ else:
 
 os.makedirs(CERT_DIR, exist_ok=True)
 
+import zlib
+
 # Secret key for signing verification tokens
 _SIGN_SECRET = os.environ.get("SECRET_KEY", "hacksphere-super-secure-production-key-2026")
+
+def get_canonical_base_url(base_url=None) -> str:
+    """
+    Ensure the base URL in QR codes is always reachable by physical mobile phones.
+    If the server was called via localhost or a private LAN IP, use the public canonical URL.
+    """
+    canonical = "https://hackathon-hub-kappa.vercel.app"
+    if not base_url:
+        return canonical
+    base = base_url.strip().rstrip("/")
+    low = base.lower()
+    if any(local_kw in low for local_kw in ["localhost", "127.0.0.1", "0.0.0.0", "::", "192.168.", "10.", "172."]):
+        return canonical
+    if base.startswith("http://"):
+        base = "https://" + base[7:]
+    return base
 
 def generate_certificate_code() -> str:
     """Generate a unique human-friendly certificate verification code."""
@@ -37,8 +55,7 @@ def build_verify_token(certificate_code, participant_name, hackathon_title,
                         project_name, organizer_name, event_dates, issued_at):
     """
     Build a self-contained signed verification token containing all cert data.
-    This allows verification to work without DB lookup on any server instance.
-    Token format: base64url(json_payload + '|' + hmac_sig)
+    Uses zlib compression + HMAC signature for a compact QR code that scans instantly.
     """
     issued_date = issued_at[:10] if issued_at else datetime.now().strftime("%Y-%m-%d")
     data = {
@@ -50,41 +67,57 @@ def build_verify_token(certificate_code, participant_name, hackathon_title,
         "d": event_dates,
         "i": issued_date,
     }
-    payload = json.dumps(data, separators=(",", ":"), ensure_ascii=False)
-    sig = hmac.new(_SIGN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:24]
-    raw = payload + "|" + sig
-    token = base64.urlsafe_b64encode(raw.encode("utf-8")).decode().rstrip("=")
+    raw = json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    comp = zlib.compress(raw, level=9)
+    sig = hmac.new(_SIGN_SECRET.encode(), comp, hashlib.sha256).digest()[:10]
+    token = base64.urlsafe_b64encode(comp + sig).decode().rstrip("=")
     return token
 
 def decode_verify_token(token):
     """
     Decode and verify a self-contained certificate token.
+    Supports both compact zlib tokens and legacy uncompressed tokens.
     Returns dict with cert data or None if invalid/tampered.
     """
+    if not token:
+        return None
+    # 1. Try compact zlib token format
+    try:
+        padded = token + "=" * (4 - len(token) % 4)
+        raw = base64.urlsafe_b64decode(padded.encode())
+        if len(raw) > 10:
+            comp, sig = raw[:-10], raw[-10:]
+            exp = hmac.new(_SIGN_SECRET.encode(), comp, hashlib.sha256).digest()[:10]
+            if hmac.compare_digest(sig, exp):
+                return json.loads(zlib.decompress(comp).decode("utf-8"))
+    except Exception:
+        pass
+
+    # 2. Try legacy uncompressed base64 format
     try:
         padded = token + "=" * (4 - len(token) % 4)
         raw = base64.urlsafe_b64decode(padded.encode()).decode("utf-8")
         payload, sig = raw.rsplit("|", 1)
         expected = hmac.new(_SIGN_SECRET.encode(), payload.encode(), hashlib.sha256).hexdigest()[:24]
-        if not hmac.compare_digest(sig, expected):
-            return None
-        return json.loads(payload)
+        if hmac.compare_digest(sig, expected):
+            return json.loads(payload)
     except Exception:
-        return None
+        pass
+
+    return None
 
 def build_verify_url(base_url, certificate_code, participant_name, hackathon_title,
                       project_name, organizer_name, event_dates, issued_at=None):
     """
-    Build a self-contained verification URL that works on ANY Vercel Lambda instance
-    without requiring a DB lookup — the signed token carries all the information.
-    Format: https://host/verify-certificate/CODE?t=TOKEN
+    Build a self-contained verification URL that works on ANY device without requiring
+    login or database lookup. Canonical base URL is enforced for mobile compatibility.
     """
-    base_url = base_url.rstrip("/")
+    canonical_base = get_canonical_base_url(base_url)
     token = build_verify_token(
         certificate_code, participant_name, hackathon_title,
         project_name, organizer_name, event_dates, issued_at or datetime.now().strftime("%Y-%m-%d")
     )
-    return f"{base_url}/verify-certificate/{certificate_code}?t={token}"
+    return f"{canonical_base}/verify-certificate/{certificate_code}?t={token}"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -159,8 +192,21 @@ def draw_organizer_signature(c, cx_center, y_base, name, color):
 
 
 def draw_qr_code(c, x, y, size, data):
-    """Draw a crisp vector QR code."""
+    """
+    Draw a crisp, high-contrast QR code with a clean white quiet-zone background
+    so any smartphone camera can scan it instantly in a fraction of a second.
+    """
+    # 1. Pure white background card with border for clean scanning contrast
+    padding = 5
+    c.setFillColor(colors.HexColor("#ffffff"))
+    c.setStrokeColor(colors.HexColor("#e2e8f0"))
+    c.setLineWidth(0.75)
+    c.rect(x - padding, y - padding, size + 2 * padding, size + 2 * padding, fill=1, stroke=1)
+
+    # 2. Render vector QR code with medium error correction
     qr = QrCodeWidget(data)
+    qr.barBorder = 3
+    qr.barLevel = 'M'
     bounds = qr.getBounds()
     w_qr = bounds[2] - bounds[0]
     h_qr = bounds[3] - bounds[1]
@@ -326,9 +372,9 @@ def generate_certificate_pdf(
     c.drawCentredString(sig_cx, sig_line_y - 24, "DIRECTOR  &  ORGANIZER")
 
     # ── CENTER: Large scannable QR Code (enlarged for instant 1-scan detection) ──
-    qr_size = 74  # Enlarged from 52 to 74pt for instant scanning from any mobile device
+    qr_size = 80
     qr_x = w / 2 - qr_size / 2
-    qr_y = bottom_y + 12
+    qr_y = bottom_y + 10
 
     # Build self-contained verify URL (works even if DB is empty on this Lambda)
     issued_date = issued_at or datetime.now().strftime("%Y-%m-%d")
@@ -347,16 +393,16 @@ def generate_certificate_pdf(
 
     # "OFFICIAL VERIFICATION" tag above QR
     c.setFillColor(bronze)
-    c.setFont("Helvetica-Bold", 6.8)
-    c.drawCentredString(w/2, qr_y + qr_size + 6, "OFFICIAL VERIFICATION")
+    c.setFont("Helvetica-Bold", 7.0)
+    c.drawCentredString(w/2, qr_y + qr_size + 8, "OFFICIAL VERIFICATION")
 
     # Caption and code below QR
     c.setFillColor(charcoal)
     c.setFont("Helvetica-Bold", 6.8)
-    c.drawCentredString(w/2, qr_y - 9, "SCAN TO VERIFY CREDENTIAL")
+    c.drawCentredString(w/2, qr_y - 11, "SCAN TO VERIFY CREDENTIAL")
     c.setFillColor(bronze)
-    c.setFont("Courier-Bold", 7.2)
-    c.drawCentredString(w/2, qr_y - 18, certificate_code)
+    c.setFont("Courier-Bold", 7.5)
+    c.drawCentredString(w/2, qr_y - 21, certificate_code)
 
     # ── RIGHT: Issue Date ───────────────────────────────────────────────────
     date_cx = w - 165

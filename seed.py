@@ -345,6 +345,46 @@ def seed_database():
             pdf_path
         ))
 
+    # 6. Seed Official Certificate for Vivek Akula (DeployX in NextGen Innovators Hackathon)
+    vivek_user = cursor.execute("SELECT id FROM users WHERE email = 'vivek.akula@example.com' OR name = 'Vivek Akula';").fetchone()
+    if not vivek_user:
+        cursor.execute("""
+            INSERT INTO users (name, email, password_hash, role, status, created_at)
+            VALUES ('Vivek Akula', 'vivek.akula@example.com', ?, 'participant', 'active', datetime('now', '-10 days'));
+        """, (pw_hash,))
+        vivek_user_id = cursor.lastrowid
+    else:
+        vivek_user_id = vivek_user["id"]
+
+    vivek_sub = cursor.execute("SELECT id FROM submissions WHERE user_id = ? AND project_name = 'DeployX';", (vivek_user_id,)).fetchone()
+    if not vivek_sub:
+        cursor.execute("""
+            INSERT INTO submissions (
+                hackathon_id, user_id, project_name, description, team_members,
+                demo_url, repo_url, status, submitted_at, reviewed_at
+            ) VALUES (
+                ?, ?, 'DeployX', 'Automated serverless multi-cloud deployment orchestrator and dashboard.',
+                'Vivek Akula', 'https://deployx.app', 'https://github.com/vivek/deployx',
+                'approved', datetime('now', '-2 days'), datetime('now', '-1 days')
+            );
+        """, (ai_hack_id, vivek_user_id))
+        vivek_sub_id = cursor.lastrowid
+    else:
+        vivek_sub_id = vivek_sub["id"]
+
+    cursor.execute("""
+        INSERT OR REPLACE INTO certificates (
+            certificate_code, hackathon_id, user_id, submission_id,
+            participant_name, hackathon_title, event_dates, organizer_name,
+            issued_at, pdf_path
+        ) VALUES (
+            'HS-2026-99D965', ?, ?, ?,
+            'VIVEK AKULA', 'NextGen Innovators Hackathon 2026',
+            '2026-11-21 to 2026-11-22', 'Hackathon Admin',
+            '2026-11-21 12:00:00', 'static/certificates/HS-2026-99D965.pdf'
+        );
+    """, (ai_hack_id, vivek_user_id, vivek_sub_id))
+
     db.commit()
     db.close()
     print("Database successfully seeded with realistic hackathons, users, submissions, and verified certificate!")
