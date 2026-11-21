@@ -39,6 +39,7 @@ def seed_database():
         ("Vivek", "vivek@example.com", pw_hash, "organizer", "Hackathon Lead & Community Founder.", None),
         ("Hackathon", "hackathon@example.com", pw_hash, "organizer", "Official Hackathon Director & Organizer.", None),
         ("Vivek Akula", "akulavivek2@gmail.com", pw_hash, "participant", "Full-stack engineer & AI developer.", None),
+        ("Akula Vivek", "vivekakula121@gmail.com", pw_hash, "participant", "Full-stack engineer & AI developer.", None),
         # Platform Administrator
         ("Platform Administrator", "admin@hacksphere.com", pw_hash, "admin", "HackSphere Platform Master Administrator.", None)
     ]
@@ -348,7 +349,6 @@ def seed_database():
         ))
 
     # 6. Seed Official Certificate for Vivek Akula (DeployX in NextGen Innovators Hackathon)
-    # Use the already-created akulavivek2@gmail.com user (created in users list above)
     vivek_user = cursor.execute("SELECT id FROM users WHERE email = 'akulavivek2@gmail.com';").fetchone()
     if not vivek_user:
         cursor.execute("""
@@ -390,11 +390,9 @@ def seed_database():
 
     # 7. Seed CodeFusion Hackathon 2026 for user 'Hackathon' (hackathon@example.com)
     hackathon_org = cursor.execute("SELECT id FROM users WHERE email = 'hackathon@example.com';").fetchone()
-    # Use akulavivek2@gmail.com as the participant (already in users list)
     vivek_participant = cursor.execute("SELECT id FROM users WHERE email = 'akulavivek2@gmail.com';").fetchone()
-    if hackathon_org and vivek_participant:
+    if hackathon_org:
         h_org_id = hackathon_org["id"]
-        v_id = vivek_participant["id"]  # akulavivek2@gmail.com user ID
         cursor.execute("""
             INSERT OR REPLACE INTO hackathons (
                 id, organizer_id, title, tagline, description, theme, format, location,
@@ -418,17 +416,109 @@ def seed_database():
         """, (h_org_id,))
 
         # Registration for Vivek Akula (akulavivek2@gmail.com) - Pending Organizer Approval
+        if vivek_participant:
+            v_id = vivek_participant["id"]
+            cursor.execute("""
+                INSERT OR REPLACE INTO registrations (
+                    hackathon_id, user_id, user_email, user_name, status, registered_at
+                ) VALUES (
+                    16, ?, 'akulavivek2@gmail.com', 'Vivek Akula', 'pending', '2026-11-21 09:30:00'
+                );
+            """, (v_id,))
+
+    # 6b. Seed Official Certificate HS-2026-7597E5 for Akula Vivek (vivekakula121@gmail.com)
+    akula_user = cursor.execute("SELECT id FROM users WHERE email = 'vivekakula121@gmail.com';").fetchone()
+    if not akula_user:
         cursor.execute("""
-            INSERT OR REPLACE INTO registrations (
-                hackathon_id, user_id, user_email, user_name, status, registered_at
+            INSERT INTO users (name, email, password_hash, role, status, created_at)
+            VALUES ('Akula Vivek', 'vivekakula121@gmail.com', ?, 'participant', 'active', datetime('now', '-10 days'));
+        """, (pw_hash,))
+        akula_user_id = cursor.lastrowid
+    else:
+        akula_user_id = akula_user["id"]
+
+    # Registration for Akula Vivek (vivekakula121@gmail.com) - Accepted
+    cursor.execute("""
+        INSERT OR REPLACE INTO registrations (
+            hackathon_id, user_id, user_email, user_name, status, registered_at
+        ) VALUES (
+            16, ?, 'vivekakula121@gmail.com', 'Akula Vivek', 'accepted', '2026-11-21 09:30:00'
+        );
+    """, (akula_user_id,))
+
+    akula_sub = cursor.execute("SELECT id FROM submissions WHERE user_id = ? AND project_name = 'DeployX';", (akula_user_id,)).fetchone()
+    if not akula_sub:
+        cursor.execute("""
+            INSERT INTO submissions (
+                hackathon_id, user_id, project_name, description, team_members,
+                demo_url, repo_url, status, submitted_at, reviewed_at, feedback
             ) VALUES (
-                16, ?, 'akulavivek2@gmail.com', 'Vivek Akula', 'pending', '2026-11-21 09:30:00'
+                16, ?, 'DeployX',
+                'DeployX - Your All-in-One AI Workspace. An AI-powered productivity platform designed to bring intelligent assistance, creativity, and productivity into one place.',
+                'Akula Vivek', 'https://deployx-project.vercel.app/', 'https://github.com/user-Vivek-ai/DeployX.git',
+                'approved', '2026-11-21 10:43:39', '2026-11-21 10:45:00',
+                'Project reviewed and approved by hackathon organizer! Congratulations on your submission.'
             );
-        """, (v_id,))
+        """, (akula_user_id,))
+        akula_sub_id = cursor.lastrowid
+    else:
+        akula_sub_id = akula_sub["id"]
+
+    cursor.execute("""
+        INSERT OR REPLACE INTO certificates (
+            certificate_code, hackathon_id, user_id, submission_id,
+            participant_name, hackathon_title, event_dates, organizer_name,
+            issued_at, pdf_path
+        ) VALUES (
+            'HS-2026-7597E5', 16, ?, ?,
+            'Akula Vivek', 'CodeFusion AI Hackathon 2026',
+            '2026-11-21 to 2026-11-22', 'Hackathon Admin',
+            '2026-11-21 10:45:00', 'static/certificates/HS-2026-7597E5.pdf'
+        );
+    """, (akula_user_id, akula_sub_id))
+
+    # 8. Pre-generate physical PDF certificate files for instant static download
+    cert_dir = os.path.join(os.path.dirname(__file__), "static", "certificates")
+    os.makedirs(cert_dir, exist_ok=True)
+    base_url = "https://hackathon-hub-kappa.vercel.app"
+
+    # Certificate HS-2026-7597E5
+    verify_url_7597 = build_verify_url(
+        base_url, "HS-2026-7597E5", "Akula Vivek", "CodeFusion AI Hackathon 2026",
+        "DeployX", "Hackathon Admin", "2026-11-21 to 2026-11-22", "2026-11-21"
+    )
+    generate_certificate_pdf(
+        certificate_code="HS-2026-7597E5",
+        participant_name="Akula Vivek",
+        hackathon_title="CodeFusion AI Hackathon 2026",
+        event_dates="2026-11-21 to 2026-11-22",
+        organizer_name="Hackathon Admin",
+        project_name="DeployX",
+        output_path=os.path.join(cert_dir, "HS-2026-7597E5.pdf"),
+        verify_url=verify_url_7597,
+        issued_at="2026-11-21 10:45:00"
+    )
+
+    # Certificate HS-2026-99D965
+    verify_url_99d9 = build_verify_url(
+        base_url, "HS-2026-99D965", "VIVEK AKULA", "NextGen Innovators Hackathon 2026",
+        "DeployX", "Hackathon Admin", "2026-11-21 to 2026-11-22", "2026-11-21"
+    )
+    generate_certificate_pdf(
+        certificate_code="HS-2026-99D965",
+        participant_name="VIVEK AKULA",
+        hackathon_title="NextGen Innovators Hackathon 2026",
+        event_dates="2026-11-21 to 2026-11-22",
+        organizer_name="Hackathon Admin",
+        project_name="DeployX",
+        output_path=os.path.join(cert_dir, "HS-2026-99D965.pdf"),
+        verify_url=verify_url_99d9,
+        issued_at="2026-11-21 12:00:00"
+    )
 
     db.commit()
     db.close()
-    print("Database successfully seeded with realistic hackathons, users, submissions, and verified certificate!")
+    print("Database successfully seeded with realistic hackathons, users, submissions, and verified certificates!")
 
 if __name__ == "__main__":
     seed_database()
